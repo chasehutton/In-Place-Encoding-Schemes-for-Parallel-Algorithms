@@ -1,0 +1,6 @@
+[submodule "parlaylib"]
+	path = parlaylib
+	url = https://github.com/cmuparlay/parlaylib
+[submodule "PIP-algorithms"]
+	path = PIP-algorithms
+	url = https://github.com/ucrparlay/PIP-algorithms
