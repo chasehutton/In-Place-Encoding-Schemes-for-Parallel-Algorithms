@@ -34,7 +34,7 @@ void WriteBlock64(parlay::sequence<uint64_t>& block, uint64_t start, uint64_t en
         bool bit = (value >> i) & 1U;
         uint64_t& first = block[start + 2*i];
         uint64_t& second = block[start + 2*i + 1];
-        if (((!bit) && first > second) || (bit && first < second)) {
+        if ((!bit && first > second) || (bit && first < second)) {
             std::swap(first, second);
         } 
     }
