@@ -7,7 +7,7 @@
 #include "parlay/parallel.h"
 
 ///////////////////////////////////////////////////////////////
-// Basic utility functions each overloaded to work with the  //
+// Basic utility functions each overloaded to work with      //
 // Parlay Slices.                                            //
 ///////////////////////////////////////////////////////////////
 
