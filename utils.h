@@ -31,7 +31,7 @@ uint32_t ReadBlock64(const parlay::sequence<uint64_t>& block, uint64_t start, ui
 void WriteBlock64(parlay::sequence<uint64_t>& block, uint64_t start, uint64_t end, const uint32_t value) {
     assert((end - start) == 64);
     for (int i = 0; i < 32; i++) {
-        uint32_t b = value & (1U << i);
+        bool b = (value << i) & 1U << i;
         uint64_t& first = block[start + 2*i];
         uint64_t& second = block[start + 2*i + 1];
         if ((b == 0 && first > second) || (b == 1 && first < second)) {
