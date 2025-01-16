@@ -6,8 +6,8 @@
 #include "parlay/sequence.h"
 #include "parlay/parallel.h"
 
-void SwapBlockN(parlay::sequence<uint32_t>& block1, parlay::sequence<uint32_t>& block2, uint32_t granularity) {
-    uint32_t size = block1.size();
+void SwapBlockN(parlay::sequence<uint64_t>& block1, parlay::sequence<uint64_t>& block2, uint64_t granularity) {
+    uint64_t size = block1.size();
     assert(size == block2.size());
     assert(size % 2 == 0);
 
@@ -16,7 +16,7 @@ void SwapBlockN(parlay::sequence<uint32_t>& block1, parlay::sequence<uint32_t>& 
     }, granularity);
 }
 
-uint32_t ReadBlock32(const parlay::sequence<uint32_t>& block, uint32_t start, uint32_t end) {
+uint32_t ReadBlock64(const parlay::sequence<uint64_t>& block, uint64_t start, uint64_t end) {
     assert((end - start) == 64);
     uint32_t result = 0;
 
@@ -28,12 +28,12 @@ uint32_t ReadBlock32(const parlay::sequence<uint32_t>& block, uint32_t start, ui
     return result;
 }
 
-void WriteBlock32(parlay::sequence<uint32_t>& block, uint32_t start, uint32_t end, const uint32_t value) {
+void WriteBlock64(parlay::sequence<uint64_t>& block, uint64_t start, uint64_t end, const uint32_t value) {
     assert((end - start) == 64);
     for (int i = 0; i < 32; i++) {
         uint32_t b = value & (1U << i);
-        uint32_t& first = block[start + 2*i];
-        uint32_t& second = block[start + 2*i + 1];
+        uint64_t& first = block[start + 2*i];
+        uint64_t& second = block[start + 2*i + 1];
         if ((b == 0 && first > second) || (b == 1 && first < second)) {
             std::swap(first, second);
         } 
