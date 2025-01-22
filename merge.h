@@ -45,8 +45,13 @@ void Free_workspaces() {
 
 
 void Compute_Ranks(parlay::sequence<uint32_t>& seq, uint32_t b) {
-    
+
     parlay::parallel_for(0, seq.size()/b, [&] (auto i) {
+        bool right = i >= seq.size()/(2*b);
+        auto start = right ? seq.size()/2 : 0;
+        auto end = right ? seq.size() - 1 : seq.size()/2 - 1;
+
+        
 
     });
 }
@@ -83,8 +88,7 @@ void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
     assert((seq.size()/2) % b == 0);
     assert(b >= BLOCK_SIZE);
 
-    // Sequential out-of-place merge will require 3*b and add an additional b for saftey
-    Init_workspaces(4*b);
+
     bool* flag = (bool*) std::malloc(sizeof(bool));
     *flag = 0;
 
@@ -92,5 +96,4 @@ void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
     SeqSort(seq, b, flag);
 
     std::free(flag);
-    Free_workspaces();
 }
