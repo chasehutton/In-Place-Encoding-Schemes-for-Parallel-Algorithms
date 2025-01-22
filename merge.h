@@ -15,6 +15,7 @@
 #define inv_W(i,v) WriteBlock(seq, (i) + BLOCK_SIZE, (i) + 2*BLOCK_SIZE - 1, v)
 #define T_R(i) ReadBlock(seq, (i), (i) + BLOCK_SIZE - 1)
 #define T_W(i,v) WriteBlock(seq, (i), (i) + BLOCK_SIZE - 1, v)
+#define GET_ENDPOINT(i,right) seq[i*b + (b-1) + (right ? seq.size()/2 : 0)]
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Each worker thread gets a workspace of size c*b where b is the given non-encoding     //
@@ -26,7 +27,7 @@
 
 static std::vector<uint32_t*> workspaces;
 
-void Init_workspaces(std::size_t n) {
+void InitWorkspaces(std::size_t n) {
     auto nw = parlay::num_workers();
     workspaces.resize(nw);
     
@@ -35,7 +36,7 @@ void Init_workspaces(std::size_t n) {
     }
 }
 
-void Free_workspaces() {
+void FreeWorkspaces() {
     for (auto* ptr : workspaces) {
         std::free(ptr);
     }
@@ -43,16 +44,30 @@ void Free_workspaces() {
     workspaces.clear();
 }
 
+///////////////////////////////////////////////////////////////////////////
+// Computes and encodes the end-sorted position and inversion pointers   //
+// for each block.                                                       //
+///////////////////////////////////////////////////////////////////////////
 
-void Compute_Ranks(parlay::sequence<uint32_t>& seq, uint32_t b) {
+void SetUp(parlay::sequence<uint32_t>& seq, uint32_t b) {
 
     parlay::parallel_for(0, seq.size()/b, [&] (auto i) {
         bool right = i >= seq.size()/(2*b);
-        auto start = right ? seq.size()/2 : 0;
-        auto end = right ? seq.size() - 1 : seq.size()/2 - 1;
 
-        
+        uint32_t low = 0;
+        uint32_t high = seq.size()/(2*b);
+        uint32_t mid;
+        // after the while loop, low stores the rank of block i
+        while (low <= high) {
+            mid = (high+low)/2;
+            if (GET_ENDPOINT(i,right) > GET_ENDPOINT(mid, !right)) low = mid+1;
+            else high = mid;
+        }
+        T_W(i, i+low);
+    });
 
+    parlay::parallel_for(0, seq.size()/b, [&] (auto i) {
+        inv_W(i, T_R(T_R(i)-i));
     });
 }
 
@@ -61,7 +76,7 @@ void Compute_Ranks(parlay::sequence<uint32_t>& seq, uint32_t b) {
 // divisible by and larger than b. b is assumed larger than BLOCK_SIZE.      //
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Done(parlay::sequence<uint32_t>& seq, uint32_t b, bool* flag) {
+inline bool Done(parlay::sequence<uint32_t>& seq, uint32_t b, bool* flag) {
     *flag = 1;
     parlay::parallel_for(0, seq.size()/b, [&] (auto i) {
         if (D_R(i) == 0) *flag = 0;
@@ -92,7 +107,7 @@ void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
     bool* flag = (bool*) std::malloc(sizeof(bool));
     *flag = 0;
 
-    Compute_Ranks(seq, b);
+    SetUp(seq, b);
     SeqSort(seq, b, flag);
 
     std::free(flag);

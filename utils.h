@@ -12,7 +12,7 @@
 /////////////////////////////////////////////////////////////////////
 
 
-void SwapBlock(parlay::sequence<uint32_t>& block1, parlay::sequence<uint32_t>& block2,
+inline void SwapBlock(parlay::sequence<uint32_t>& block1, parlay::sequence<uint32_t>& block2,
                 uint32_t block1_start, uint32_t block1_end, uint32_t block2_start, uint32_t block2_end, uint32_t granularity) {
     uint32_t size = block1_end - block1_start;
     assert(size == block2_end - block2_start);
@@ -22,7 +22,7 @@ void SwapBlock(parlay::sequence<uint32_t>& block1, parlay::sequence<uint32_t>& b
     }, granularity);
 }
 
-void SwapBlock(parlay::slice<uint32_t*, uint32_t*> block1, 
+inline void SwapBlock(parlay::slice<uint32_t*, uint32_t*> block1, 
                 parlay::slice<uint32_t*, uint32_t*> block2,
                 uint32_t granularity) {
     uint32_t size = block1.size();
@@ -33,7 +33,7 @@ void SwapBlock(parlay::slice<uint32_t*, uint32_t*> block1,
     }, granularity);
 }
 
-uint32_t ReadBlock(parlay::sequence<uint32_t>& block, uint32_t start, uint32_t end) {
+inline uint32_t ReadBlock(parlay::sequence<uint32_t>& block, uint32_t start, uint32_t end) {
     uint32_t size = end - start;
     assert(size % 2 == 0);
     uint32_t result = 0;
@@ -45,7 +45,7 @@ uint32_t ReadBlock(parlay::sequence<uint32_t>& block, uint32_t start, uint32_t e
     return result;
 }
 
-uint32_t ReadBlock(parlay::slice<uint32_t*, uint32_t*> block) {
+inline uint32_t ReadBlock(parlay::slice<uint32_t*, uint32_t*> block) {
     uint32_t size = block.size();
     assert(size % 2 == 0);
     uint32_t result = 0;
@@ -57,7 +57,7 @@ uint32_t ReadBlock(parlay::slice<uint32_t*, uint32_t*> block) {
     return result;
 }
 
-void WriteBlock(parlay::sequence<uint32_t>& block, uint32_t start, uint32_t end, uint32_t value) {
+inline void WriteBlock(parlay::sequence<uint32_t>& block, uint32_t start, uint32_t end, uint32_t value) {
     uint32_t size = end - start;
     assert(size % 2 == 0);
     for (int i = 0; i < (size/2); i++) {
@@ -70,7 +70,7 @@ void WriteBlock(parlay::sequence<uint32_t>& block, uint32_t start, uint32_t end,
     }
 }
 
-void WriteBlock(parlay::slice<uint32_t*, uint32_t*> block, uint32_t value) {
+inline void WriteBlock(parlay::slice<uint32_t*, uint32_t*> block, uint32_t value) {
     uint32_t size = block.size();
     assert(size % 2 == 0);
     for (int i = 0; i < (size/2); i++) {
