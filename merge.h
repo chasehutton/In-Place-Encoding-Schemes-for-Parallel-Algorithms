@@ -149,11 +149,31 @@ void EndSort(parlay::sequence<uint32_t>& seq, uint32_t b, bool* flag) {
 
 }
 
-void Separate(parlay::sequence<uint32_t>& seq, uint32_t b) {
+// fix
+inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint32_t b) {
+    uint32_t nb = (end - start) / b;
+    uint32_t i = start/b + nb/2 - 1;
+    uint32_t j = std::min(start/b + nb - 1, inv_R(i));
 
+    uint32_t A_inv = inv_R(i);
+    uint32_t B_inv = inv_R(j);
+
+    auto A = parlay::make_slice(seq.begin() + i*b, seq.begin() + i*b + b - 1);
+    auto B = parlay::make_slice(seq.begin() + j*b, seq.begin() + j*b + b - 1);
+
+    if (b <= 512) {
+        BubbleSort(A,B);
+    } else if (b <= 8192) {
+        merge(A,B);
+    } else {
+        // Parallel Merge Out-Of-Place
+    }
+
+    inv_W(i, A_inv);
+    inv_W(j, B_inv);
 }
 
-void SeqSort(parlay::sequence<uint32_t>& seq, uint32_t b, bool* flag) {
+void SeqSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint32_t b) {
 
 }
 

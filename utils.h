@@ -11,7 +11,6 @@
 // Parlay Slices.                                                  //
 /////////////////////////////////////////////////////////////////////
 
-
 inline void SwapBlock(parlay::sequence<uint32_t>& seq,
                 uint32_t block1_start, uint32_t block1_end, uint32_t block2_start, uint32_t block2_end) {
     uint32_t size = block1_end - block1_start + 1;
@@ -80,4 +79,79 @@ inline void WriteBlock(parlay::slice<uint32_t*, uint32_t*> block, uint32_t value
     }
 }
 
+// Simple BubbleSort
+
+inline void BubbleSort(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*, uint32_t*> B) {
+    auto n = A.size() + B.size();
+
+    uint32_t t;
+    bool flag;
+    for (int i = 0; i < n; i++) {
+        flag = false;
+        for (int j = 0; j < n-i-1; j++) {
+            if (j + 1 <= n/2 - 1) {
+                if (A[j] > A[j+1]) {
+                    flag = true;
+                    t = A[j+1];
+                    A[j+1] = A[j];
+                    A[j] = t;
+                }
+            } else if (j >= n/2) {
+                if (B[j - n/2] < B[j+1 - n/2]) {
+                    flag = true;
+                    t = B[j+1 - n/2];
+                    B[j+1 - n/2] = B[j - n/2];
+                    B[j - n/2] = t;
+                }
+            } else {
+                if (A[n/2 - 1] < B[0]) {
+                    flag = true;
+                    t = B[0];
+                    B[0] = A[n/2 - 1];
+                    A[n/2 - 1] = t;
+                }
+            }
+        }
+
+        if (!flag) return;
+    }
+}
+
+// Simple Out-Of-Place Merge
+
+inline void merge(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*, uint32_t*> B) {
+    auto n = A.size();
+    auto Aux = parlay::sequence<uint32_t>(2*n);
+    auto a = 0;
+    auto b = 0;
+    auto c = 0;
+
+    while (a < n && b < n) {
+        if (A[a] < B[b]) {
+            Aux[c] = A[a];
+            a++;
+        } else {
+            Aux[c] = B[b];
+            b++;
+        }
+        c++;
+    }
+
+    while (a < n) {
+        Aux[c] = A[a];
+        a++;
+        c++;
+    }
+
+    while (b < n) {
+        Aux[c] = B[b];
+        b++;
+        c++;
+    }
+
+    for (int i = 0; i < n; i++) {
+        A[i] = Aux[i];
+        B[i+n] = Aux[i+n];
+    }
+}
 
