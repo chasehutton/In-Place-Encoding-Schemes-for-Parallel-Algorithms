@@ -37,7 +37,7 @@
 #define D_R(j) ReadBlock(seq, (j)*b + 3*SEGMENT_SIZE + 2, (j)*b + 3*SEGMENT_SIZE + 4)
 #define D_W(j,v) WriteBlock(seq, (j)*b + 3*SEGMENT_SIZE + 2, (j)*b + 3*SEGMENT_SIZE + 4, v)
 
-// D is encoded in S[j*b + 3*SEGMENT_SIZE + 4 : j*b + 3*SEGMENT_SIZE + 6)
+// E is encoded in S[j*b + 3*SEGMENT_SIZE + 4 : j*b + 3*SEGMENT_SIZE + 6)
 #define E_R(j) ReadBlock(seq, (j)*b + 3*SEGMENT_SIZE + 4, (j)*b + 3*SEGMENT_SIZE + 6)
 #define E_W(j,v) WriteBlock(seq, (j)*b + 3*SEGMENT_SIZE + 4, (j)*b + 3*SEGMENT_SIZE + 6, v)
 
@@ -113,7 +113,7 @@ void SetUp(parlay::sequence<uint32_t>& seq, uint32_t b) {
         uint32_t r1 = R_R(i);
         uint32_t r2 = R_R(i + nb);
 
-        inv_W(i, T_R(r1));
+        inv_W(i, T_R(nb + r1));
         inv_W(i + nb, T_R(r2));
     });
 }
@@ -133,7 +133,7 @@ inline bool Done(parlay::sequence<uint32_t>& seq, uint32_t b, bool* flag) {
 }
 
 void EndSort(parlay::sequence<uint32_t>& seq, uint32_t b, bool* flag) {
-    size_t nBlocks = seq.size() / b;
+    uint32_t nBlocks = seq.size() / b;
 
     // Initialize E=0, D=1 if T(i)=i else 0
     parlay::parallel_for(0, nBlocks, [&] (uint32_t i) {
@@ -255,31 +255,131 @@ void SeqSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint
 }
 
 // GPT code to check if endsorted
-// bool IsEndSorted(const parlay::sequence<uint32_t>& seq, uint32_t b) {
-//   // number of blocks
-//   size_t nBlocks = seq.size() / b;
+bool IsEndSorted(const parlay::sequence<uint32_t>& seq, uint32_t b) {
+  // number of blocks
+  uint32_t nBlocks = seq.size() / b;
   
-//   // If only 0 or 1 block, trivially "end-sorted" by endpoints
-//   if (nBlocks <= 1) return true;
+  // If only 0 or 1 block, trivially "end-sorted" by endpoints
+  if (nBlocks <= 1) return true;
 
-//   // Check each adjacent pair of blocks
-//   for (size_t i = 1; i < nBlocks; i++) {
-//     // Compare block (i-1)'s endpoint with block i's endpoint
-//     if (GET_ENDPOINT(i - 1) > GET_ENDPOINT(i)) {
-//       std::cout << "Endpoints out of order between blocks "
-//                 << (i - 1) << " and " << i
-//                 << ": GET_ENDPOINT(" << (i - 1) << ")="
-//                 << GET_ENDPOINT(i - 1)
-//                 << " > GET_ENDPOINT(" << i << ")="
-//                 << GET_ENDPOINT(i)
-//                 << "\n";
-//       return false;
-//     }
-//   }
+  // Check each adjacent pair of blocks
+  for (uint32_t i = 1; i < nBlocks; i++) {
+    // Compare block (i-1)'s endpoint with block i's endpoint
+    if (GET_ENDPOINT(i - 1) > GET_ENDPOINT(i)) {
+      std::cout << "Endpoints out of order between blocks "
+                << (i - 1) << " and " << i
+                << ": GET_ENDPOINT(" << (i - 1) << ")="
+                << GET_ENDPOINT(i - 1)
+                << " > GET_ENDPOINT(" << i << ")="
+                << GET_ENDPOINT(i)
+                << "\n";
+      return false;
+    }
+  }
 
-//   return true;  // No violations found
-// }
+  return true;  // No violations found
+}
 
+// GPT code
+bool CheckInversionPointers(parlay::sequence<uint32_t>& seq, uint32_t b) {
+  // total #blocks across both halves
+  uint32_t totalBlocks = seq.size() / b;
+  // #blocks in each half
+  uint32_t nb = totalBlocks / 2;  
+  bool allGood = true;
+
+  // ------------------------------------------------------------------------
+  // 1) For blocks in the LEFT half [0..nb-1]:
+  //    inv(i) should be in [nb.. 2*nb], 
+  //    and be the first block in the right half whose endpoint >= GET_ENDPOINT(i).
+  // ------------------------------------------------------------------------
+  for (uint32_t i = 0; i < nb; i++) {
+    // The endpoint of block i
+    auto e_i = GET_ENDPOINT(i);
+
+    // The "inversion pointer" for block i
+    uint32_t inv_i = inv_R(i);
+
+    // Check range. If we allow "inv_i = 2*nb" as a sentinel, that might be valid
+    // depending on your code. Otherwise, typically inv_i < 2*nb.
+    if (inv_i < nb || inv_i > 2*nb) {
+      std::cerr << "ERROR: For block " << i << " in left half, inv_R(i)=" 
+                << inv_i << " is out of [nb..2*nb)."
+                << "\n";
+      allGood = false;
+      continue;
+    }
+
+    // 1a) For each block x in [nb.. inv_i),
+    //     check GET_ENDPOINT(x) < e_i
+    for (uint32_t x = nb; x < inv_i && x < 2*nb; x++) {
+      if (GET_ENDPOINT(x) >= e_i) {
+        std::cerr << "ERROR: block " << i << " endpoint=" << e_i
+                  << " claims inv=" << inv_i
+                  << " but block " << x
+                  << " has endpoint=" << GET_ENDPOINT(x)
+                  << " >= e_i.\n";
+        allGood = false;
+      }
+    }
+
+    // 1b) If inv_i < 2*nb, check GET_ENDPOINT(inv_i) >= e_i
+    if (inv_i < 2*nb) {
+      if (GET_ENDPOINT(inv_i) < e_i) {
+        std::cerr << "ERROR: block " << i << " endpoint=" << e_i
+                  << " claims inv=" << inv_i
+                  << " but GET_ENDPOINT(inv_i)="
+                  << GET_ENDPOINT(inv_i) << " < e_i.\n";
+        allGood = false;
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // 2) For blocks in the RIGHT half [nb..2*nb-1]:
+  //    inv(i) should be in [0..nb], 
+  //    and be the first block in the left half whose endpoint >= GET_ENDPOINT(i).
+  // ------------------------------------------------------------------------
+  for (uint32_t i = nb; i < 2*nb; i++) {
+    auto e_i = GET_ENDPOINT(i);
+    uint32_t inv_i = inv_R(i);
+
+    // Check range: typically we expect inv_i < nb or inv_i=nb as a sentinel
+    // if your code does that. Adjust if your logic differs (e.g. "inv_i<=nb").
+    if (inv_i > nb) {
+      std::cerr << "ERROR: For block " << i << " in right half, inv_R(i)=" 
+                << inv_i << " is out of [0..nb].\n";
+      allGood = false;
+      continue;
+    }
+
+    // 2a) For each block x in [0.. inv_i),
+    //     check GET_ENDPOINT(x) < e_i
+    for (uint32_t x = 0; x < inv_i; x++) {
+      if (GET_ENDPOINT(x) >= e_i) {
+        std::cerr << "ERROR: block " << i << " endpoint=" << e_i
+                  << " claims inv=" << inv_i
+                  << " but block " << x
+                  << " has endpoint=" << GET_ENDPOINT(x)
+                  << " >= e_i.\n";
+        allGood = false;
+      }
+    }
+
+    // 2b) If inv_i < nb, check GET_ENDPOINT(inv_i) >= e_i
+    if (inv_i < nb) {
+      if (GET_ENDPOINT(inv_i) < e_i) {
+        std::cerr << "ERROR: block " << i << " endpoint=" << e_i
+                  << " claims inv=" << inv_i
+                  << " but GET_ENDPOINT(inv_i)="
+                  << GET_ENDPOINT(inv_i) << " < e_i.\n";
+        allGood = false;
+      }
+    }
+  }
+
+  return allGood;
+}
 
 void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
     assert(seq.size()/2 % b == 0);
@@ -293,8 +393,14 @@ void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
 
     std::cout << "Setting Up...\n\n";
     SetUp(seq, b);
+
+    //assert(CheckInversionPointers(seq, b));
+
     std::cout << "End Sorting...\n\n";
     EndSort(seq, b, flag);
+
+    assert(IsEndSorted(seq, b));
+
     std::cout << "Seq Sorting...\n\n";
     SeqSort(seq, 0, (uint32_t)seq.size(), b);
 

@@ -143,7 +143,7 @@ parlay::sequence<uint32_t> generateUniqueTwoSortedHalves(uint32_t size) {
     // Random number generator
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<uint32_t> dis(1, 10000);
+    std::uniform_int_distribution<uint32_t> dis(1, 100000000);
 
     std::set<uint32_t> globalSet;
     while (globalSet.size() < size) {
@@ -198,7 +198,7 @@ bool CheckEachHalfSorted(const parlay::sequence<uint32_t>& testSequence) {
 }
 
 int main() {
-    size_t size = 2048;
+    size_t size = 1048576;
 
     parlay::sequence<uint32_t> testSequence = generateUniqueTwoSortedHalves(size);
     assert(CheckEachHalfSorted(testSequence));
@@ -207,7 +207,7 @@ int main() {
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    Merge(testSequence, 512);
+    Merge(testSequence, 1024);
 
     auto end = std::chrono::high_resolution_clock::now();
 
