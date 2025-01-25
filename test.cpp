@@ -120,6 +120,9 @@ int main() {
     auto A = testSequence.subseq(0, half);
     auto B = testSequence.subseq(half, testSequence.size());
 
+	buffer_merge(A, B);
+    
+
     start = std::chrono::high_resolution_clock::now();
 
     auto r = parlay::merge(A, B);
@@ -154,17 +157,34 @@ int main() {
         //     std::cout << "Inverted Pair = " << "( " << testSequence[r.first] << ", " << testSequence[r.second] << " )\n"; 
         // }
     }
+
+	
+    for (size_t i = 0; i < A.size(); i++) {
+            if (A[i] != r[i]) {
+            std::cout << "ERROR: Mismatch at index " << i 
+                        << " => " << A[i] << " vs. " << r[i] << "\n";
+            return 1;
+            }
+        }
+        for (size_t i = 0; i < B.size(); i++) {
+                    if (B[i] != r[A.size()+i]) {
+                    std::cout << "ERROR: Mismatch at index " << i 
+                                << " => " << B[A.size()+i] << " vs. " << r[i] << "\n";
+                    return 1;
+                    }
+                }
+    
+        std::cout << "SUCCESS: Buffer Merge result matches parlay::merge.\n";
     
     // Check if they are identical
-    for (size_t i = 0; i < testSequence.size(); i++) {
-        if (testSequence[i] != r[i]) {
-        std::cout << "ERROR: Mismatch at index " << i 
-                    << " => " << testSequence[i] << " vs. " << r[i] << "\n";
-        return 1;
-        }
-    }
-
-    std::cout << "SUCCESS: In-place Merge result matches parlay::merge.\n";
-    return 0;
+//     for (size_t i = 0; i < testSequence.size(); i++) {
+//         if (testSequence[i] != r[i]) {
+//         std::cout << "ERROR: Mismatch at index " << i 
+//                     << " => " << testSequence[i] << " vs. " << r[i] << "\n";
+//         return 1;
+//         }
+//     }
+// 
+//     std::cout << "SUCCESS: In-place Merge result matches parlay::merge.\n";
     return 0;
 }

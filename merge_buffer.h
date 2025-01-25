@@ -80,7 +80,7 @@ void distribute (	parlay::slice<uint32_t*,uint32_t*> aux,
 	});
 }
 
-void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
+void buffer_merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
 	std::cout << "Buffer Merging...\n\n";
 	auto start = std::chrono::high_resolution_clock().now();
 	
