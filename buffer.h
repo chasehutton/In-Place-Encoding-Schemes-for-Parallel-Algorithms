@@ -31,7 +31,7 @@ struct buffer {
   		return ReadBlock(enc, i*segment_size, (i+1)*segment_size);
     }
     
-    uint32_t write(uint32_t i, uint32_t v) {
+    void write(uint32_t i, uint32_t v) {
     	// assert(0 <=  i && i < aux_size()) && "aux out of bounds error";
    		WriteBlock(enc, i*segment_size, (i+1)*segment_size, v);
     }
