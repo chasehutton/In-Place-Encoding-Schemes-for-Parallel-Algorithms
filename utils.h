@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring> 
 
 
 #include "parlay/sequence.h"
@@ -28,6 +29,18 @@ inline void SwapBlock(parlay::slice<uint32_t*, uint32_t*> block1,
     for (int i = 0; i < size; i++) {
         std::swap(block1[i], block2[i]);
     }
+}
+
+inline void SwapBlockCpy(parlay::sequence<uint32_t>& seq, uint32_t block1_start, uint32_t block1_end,
+                      uint32_t block2_start, uint32_t block2_end) {
+
+    size_t size = (block1_end - block1_start) * sizeof(uint32_t);
+
+    parlay::sequence<uint32_t> temp(size);
+
+    std::memcpy(temp.begin(), seq.begin() + block1_start, size);
+    std::memcpy(seq.begin() + block1_start, seq.begin() + block2_start, size); 
+    std::memcpy(seq.begin() + block2_start, temp.begin(), size); 
 }
 
 // Assumes size is divisible by 2 and less than or equal to 64
@@ -130,30 +143,31 @@ inline void BubbleSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t
 // Simple Out-Of-Place Merge
 
 inline void merge(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*, uint32_t*> B) {
-    auto nA = A.size();
-    auto nB = B.size();
-    parlay::sequence<uint32_t> Aux(nA + nB);
-    size_t i=0, j=0, k=0;
-    while (i < nA && j < nB) {
-        if (A[i] <= B[j]) {
-        Aux[k++] = A[i++];
+    auto n = A.size();
+    parlay::sequence<uint32_t> temp(2 * n);
+
+    auto itA = A.begin();
+    auto itB = B.begin();
+    auto itTemp = temp.begin();
+
+    while (itA != A.end() && itB != B.end()) {
+        if (*itA <= *itB) {
+            *itTemp = *itA;
+            ++itA;
         } else {
-        Aux[k++] = B[j++];
+            *itTemp = *itB;
+            ++itB;
         }
+        ++itTemp;
     }
 
-    while (i < nA) {
-        Aux[k++] = A[i++];
-    }
-    while (j < nB) {
-        Aux[k++] = B[j++];
-    }
+    std::copy(itA, A.end(), itTemp);
+    std::copy(itB, B.end(), itTemp);
 
-    for (size_t x = 0; x < nA; x++) {
-        A[x] = Aux[x];
-    }
-    for (size_t x = 0; x < nB; x++) {
-        B[x] = Aux[nA + x];
+    // Write the merged result evenly back into A and B
+    for (size_t i = 0; i < n; ++i) {
+        A[i] = temp[i];
+        B[i] = temp[n + i];
     }
 }
 

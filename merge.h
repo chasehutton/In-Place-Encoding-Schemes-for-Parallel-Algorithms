@@ -8,6 +8,7 @@
 
 #include "utils.h"
 #include "parlay/sequence.h"
+#include "parlay/internal/uninitialized_sequence.h"
 #include "parlay/parallel.h"
 #include "parlay/primitives.h"
 #include "parlay/random.h"
@@ -214,6 +215,11 @@ inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t e
         PairwiseSort(A);
         PairwiseSort(B);
         merge(A, B);
+        // auto R = parlay::sequence<uint32_t>(A.size() + B.size());
+        // R = parlay::merge(A, B);
+        // std::move(R.begin(), R.begin() + A.size(), A.begin());
+        // std::move(R.begin() + A.size(), R.end(), B.begin());
+        // R.clear();
     }
 
     if (!base_case) {
@@ -299,7 +305,6 @@ void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
     assert(seq.size() > b);
     assert(b % 2 == 0);
     assert(b >= 5*SEGMENT_SIZE);
-
 
     bool* flag = (bool*) std::malloc(sizeof(bool));
     *flag = false;
