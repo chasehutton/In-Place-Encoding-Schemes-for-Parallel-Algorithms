@@ -165,10 +165,8 @@ inline void merge(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*
     std::copy(itB, B.end(), itTemp);
 
     // Write the merged result evenly back into A and B
-    for (size_t i = 0; i < n; ++i) {
-        A[i] = temp[i];
-        B[i] = temp[n + i];
-    }
+    std::copy(temp.begin(), temp.begin()+n, A.begin());
+    std::copy(temp.begin()+n, temp.end(), B.begin());
 }
 
 
