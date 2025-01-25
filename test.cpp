@@ -249,12 +249,12 @@ int main() {
         // }
         std::cout << "\n\n\n\n";
 
-        auto e = ComputeAllInversions(testSequence);
+        // auto e = ComputeAllInversions(testSequence);
 
-        for (auto r : e) {
-            std::cout << "Inversion at indices " << r.first << " and " << r.second << "\n";
-            std::cout << "Inverted Pair = " << "( " << testSequence[r.first] << ", " << testSequence[r.second] << " )\n"; 
-        }
+        // for (auto r : e) {
+        //     std::cout << "Inversion at indices " << r.first << " and " << r.second << "\n";
+        //     std::cout << "Inverted Pair = " << "( " << testSequence[r.first] << ", " << testSequence[r.second] << " )\n"; 
+        // }
     }
     
     // Check if they are identical
