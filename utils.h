@@ -55,6 +55,18 @@ inline uint32_t ReadBlock(parlay::sequence<uint32_t>& block, uint32_t start, uin
     return result;
 }
 
+inline uint32_t ReadBlock(parlay::slice<uint32_t*, uint32_t*> block, uint32_t start, uint32_t end) {
+    uint32_t size = end - start;
+    uint32_t result = 0;
+    uint8_t bit_pos = 0;
+    for(int i = 0; i < size/2; i++) {
+        if (block[start + 2*i] > block[start + 2*i + 1]) result |= (1U << bit_pos);
+        bit_pos++;
+    }
+
+    return result;
+}
+
 inline uint32_t ReadBlock(parlay::slice<uint32_t*, uint32_t*> block) {
     uint32_t size = block.size();
     uint32_t result = 0;
