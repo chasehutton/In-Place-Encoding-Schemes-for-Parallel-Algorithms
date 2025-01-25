@@ -101,13 +101,13 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
 		auto E = parlay::make_slice(B.begin(), B.begin()+r);
 		auto F = parlay::make_slice(B.begin()+n-i*r-r, B.end()-i*r);
 
-		merge_into(D, E, Buffer.aux);
+		parlay::internal::merge_into(D, E, Buffer.aux);
 		distribute(Buffer.aux, D, E);
 		
-		merge_into(C, D, Buffer.aux);
+		parlay::internal::merge_into(C, D, Buffer.aux);
 		distribute(Buffer.aux, C, D);
 		
-		merge_into(E, F, Buffer.aux);
+		parlay::internal::merge_into(E, F, Buffer.aux);
 		distribute(Buffer.aux, E, F);
 	}
 
@@ -124,13 +124,13 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
 		auto E = parlay::make_slice(B.begin(), B.begin()+r);
 		auto F = parlay::make_slice(B.begin()+n-i*r-r, B.end()-i*r);
 
-		merge_into(D, E, Buffer.aux);
+		parlay::internal::merge_into(D, E, Buffer.aux);
 		distribute(Buffer.aux, D, E);
 		
-		merge_into(C, D, Buffer.aux);
+		parlay::internal::merge_into(C, D, Buffer.aux);
 		distribute(Buffer.aux, C, D);
 		
-		merge_into(E, F, Buffer.aux);
+		parlay::internal::merge_into(E, F, Buffer.aux);
 		distribute(Buffer.aux, E, F);
 	}
 
