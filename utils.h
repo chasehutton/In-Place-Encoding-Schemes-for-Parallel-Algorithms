@@ -163,7 +163,7 @@ inline void PairwiseSort(parlay::slice<uint32_t*, uint32_t*> block) {
   // If n is odd, the last element has no partner
   uint32_t limit = n - (n % 2);
 
-  if (n <= 1024) {
+  if (n <= 512) {
     for (int i = 0; i < limit/2; i++) {
         uint32_t idx1 = 2*i;
         uint32_t idx2 = 2*i + 1;

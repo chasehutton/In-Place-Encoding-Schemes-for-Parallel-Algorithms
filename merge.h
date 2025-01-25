@@ -217,7 +217,6 @@ inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t e
     }
 
     if (!base_case) {
-    // restore the inversion pointers
         inv_W(i, A_inv);
         inv_W(j, B_inv);
     }
