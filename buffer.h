@@ -28,12 +28,12 @@ struct buffer {
 
     uint32_t read(uint32_t i) {
     	// assert(0 <=  i && i < aux_size()) && "aux out of bounds error";
-  		return ReadBlock(enc, i*block_size, (i+1)*block_size);
+  		return ReadBlock(enc, i*segment_size, (i+1)*segment_size);
     }
     
     uint32_t write(uint32_t i, uint32_t v) {
     	// assert(0 <=  i && i < aux_size()) && "aux out of bounds error";
-   		WriteBlock(enc, i*block_size, (i+1)*block_size, v);
+   		WriteBlock(enc, i*segment_size, (i+1)*segment_size, v);
     }
 
     void initialize() {
