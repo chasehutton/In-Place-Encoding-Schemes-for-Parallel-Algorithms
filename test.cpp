@@ -141,7 +141,6 @@ int main() {
 
     if (!IsSorted(testSequence)) {
         std::cout << "Not Sorted\n\n\n";
-        std::cout << "Number of Inversion: " << CountInversions(testSequence);
         // for (int i = 0; i < 1024; i++) {
         //     std::cout << testSequence[i] << "         ";
         //     if (i % 10 == 0) std::cout << "\n\n";
