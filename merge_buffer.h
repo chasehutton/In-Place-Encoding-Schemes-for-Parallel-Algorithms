@@ -101,13 +101,13 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
 		auto E = parlay::make_slice(B.begin(), B.begin()+r);
 		auto F = parlay::make_slice(B.begin()+n-i*r-r, B.end()-i*r);
 
-		parlay::internal::merge_into(D, E, Buffer.aux, std::less<>());
+		parlay::internal::merge_into<parlay::uninitialized_move_tag>(D, E, Buffer.aux, std::less<>());
 		distribute(Buffer.aux, D, E);
 		
-		parlay::internal::merge_into(C, D, Buffer.aux, std::less<>());
+		parlay::internal::merge_into<parlay::uninitialized_move_tag>(C, D, Buffer.aux, std::less<>());
 		distribute(Buffer.aux, C, D);
 		
-		parlay::internal::merge_into(E, F, Buffer.aux, std::less<>());
+		parlay::internal::merge_into<parlay::uninitialized_move_tag>(E, F, Buffer.aux, std::less<>());
 		distribute(Buffer.aux, E, F);
 	}
 
@@ -124,19 +124,19 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
 		auto E = parlay::make_slice(B.begin(), B.begin()+r);
 		auto F = parlay::make_slice(B.begin()+n-i*r-r, B.end()-i*r);
 
-		parlay::internal::merge_into(D, E, Buffer.aux, std::less<>());
+		parlay::internal::merge_into<parlay::uninitialized_move_tag>(D, E, Buffer.aux, std::less<>());
 		distribute(Buffer.aux, D, E);
 		
-		parlay::internal::merge_into(C, D, Buffer.aux, std::less<>());
+		parlay::internal::merge_into<parlay::uninitialized_move_tag>(C, D, Buffer.aux, std::less<>());
 		distribute(Buffer.aux, C, D);
 		
-		parlay::internal::merge_into(E, F, Buffer.aux, std::less<>());
+		parlay::internal::merge_into<parlay::uninitialized_move_tag>(E, F, Buffer.aux, std::less<>());
 		distribute(Buffer.aux, E, F);
 	}
 
 	auto D = parlay::make_slice(A.begin()+n-r, A.end());
 	auto E = parlay::make_slice(B.begin(), B.begin()+r);
-	merge_into(D, E, Buffer.aux);
+	parlay::internal::merge_into<parlay::uninitialized_move_tag>(D, E, Buffer.aux, std::less<>());
 	distribute(Buffer.aux, D, E);
 
 	Buffer.restore();
