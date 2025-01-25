@@ -10,6 +10,8 @@
 #include "parlay/primitives.h"
 #include "parlay/random.h"
 
+#define OPTIMIZE 0
+
 // Each SEGMENT can encode SEGMENT_SIZE / 2 bits
 #define SEGMENT_SIZE 64
 
@@ -91,6 +93,7 @@ void SetUp(parlay::sequence<uint32_t>& seq, uint32_t b) {
             if (GET_ENDPOINT(i) > GET_ENDPOINT(mid + nb)) low = mid+1;
             else high = mid;
         }
+        if (low == nb + 1) low = nb;
         R_W(i, low);
 
         low = 0;
@@ -101,6 +104,7 @@ void SetUp(parlay::sequence<uint32_t>& seq, uint32_t b) {
             if (GET_ENDPOINT(i + nb) > GET_ENDPOINT(mid)) low = mid+1;
             else high = mid;
         }
+        if (low == nb + 1) low = nb;
         R_W(i + nb, low);
     });
 
@@ -202,7 +206,7 @@ inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t e
     auto B = parlay::make_slice(seq.begin() + j*b,
                                 seq.begin() + j*b + b);
 
-    if (b <= 256) {
+    if (b <= 128) {
         BubbleSort(A, B);
     } else {
         PairwiseSort(A);
@@ -218,29 +222,35 @@ inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t e
 void SeqSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint32_t b) {
     assert(start % b == 0 && end % b == 0);
     uint32_t n = end - start;
-    if (n <= 2*b) {
-        if (b <= 512) {
-            BubbleSort(seq, start, end);
-        } else if (b <= 8192) {
-            uint32_t half = start + (n/2);
-            auto A = parlay::make_slice(seq.begin() + start,
-                                        seq.begin() + half);
-            auto B = parlay::make_slice(seq.begin() + half,
-                                        seq.begin() + end);
-                        
-            PairwiseSort(A);
-            PairwiseSort(B);
-            merge(A, B);
-        } else {
-            // Parallel Merge Out-Of-Place
-        }
-
-        return;
-    }
-
     uint32_t totalBlocks = n / b;   // # blocks in [start,end)
     uint32_t halfBlocks  = totalBlocks / 2;
     uint32_t mid = start + (halfBlocks * b);  // in multiples of b
+
+    if (OPTIMIZE) {
+        // Do something optimal
+    } else { 
+        if (n <= 2*b) {
+            if (b <= 128) {
+                BubbleSort(seq, start, end);
+            } else if (b <= 8192) {
+                auto A = parlay::make_slice(seq.begin() + start,
+                                            seq.begin() + mid);
+                auto B = parlay::make_slice(seq.begin() + mid,
+                                            seq.begin() + end);
+                            
+                PairwiseSort(A);
+                PairwiseSort(B);
+                merge(A, B);
+            } else {
+                // Parallel Merge Out-Of-Place
+            }
+
+            return;
+        }
+    }
+
+
+ 
 
     Separate(seq, start, end, b);
 
@@ -280,105 +290,48 @@ bool IsEndSorted(const parlay::sequence<uint32_t>& seq, uint32_t b) {
   return true;  // No violations found
 }
 
-// GPT code
 bool CheckInversionPointers(parlay::sequence<uint32_t>& seq, uint32_t b) {
-  // total #blocks across both halves
-  uint32_t totalBlocks = seq.size() / b;
-  // #blocks in each half
-  uint32_t nb = totalBlocks / 2;  
-  bool allGood = true;
+    uint32_t nb = seq.size()/(2*b);
+    bool x = true;
+    for (int i = 0; i < nb; i++){
+        uint32_t e_i = GET_ENDPOINT(i);
+        uint32_t inv_i = R_R(i);
 
-  // ------------------------------------------------------------------------
-  // 1) For blocks in the LEFT half [0..nb-1]:
-  //    inv(i) should be in [nb.. 2*nb], 
-  //    and be the first block in the right half whose endpoint >= GET_ENDPOINT(i).
-  // ------------------------------------------------------------------------
-  for (uint32_t i = 0; i < nb; i++) {
-    // The endpoint of block i
-    auto e_i = GET_ENDPOINT(i);
+        for (int j = nb; j < 2*nb; j++) {
+            uint32_t t = GET_ENDPOINT(j);
+            if (j < inv_i + nb) {
+                if (e_i < t) {
+                    std::cout << "Block " << i << " claims inversion with block " << inv_i + nb << " but has inversion with block " << j << "\n";
+                    x = false;
+                }
+            } else if (j > inv_i + nb) {
+                if (e_i > t) {
+                    std::cout << "Block " << i << " claims inversion with block " << inv_i + nb << " but has inversion with block " << j << "\n";
+                    x = false;
+                }
+            }
+        }
 
-    // The "inversion pointer" for block i
-    uint32_t inv_i = inv_R(i);
+        e_i = GET_ENDPOINT(i + nb);
+        inv_i = R_R(i + nb);
 
-    // Check range. If we allow "inv_i = 2*nb" as a sentinel, that might be valid
-    // depending on your code. Otherwise, typically inv_i < 2*nb.
-    if (inv_i < nb || inv_i > 2*nb) {
-      std::cerr << "ERROR: For block " << i << " in left half, inv_R(i)=" 
-                << inv_i << " is out of [nb..2*nb)."
-                << "\n";
-      allGood = false;
-      continue;
+        for (int j = 0; j < nb; j++) {
+            uint32_t t = GET_ENDPOINT(j);
+            if (j < inv_i) {
+                if (e_i < t) {
+                    std::cout << "Block " << i + nb << " claims inversion with block " << inv_i << " but has inversion with block " << j << "\n";
+                    x = false;
+                }
+            } else if (j > inv_i) {
+                if (e_i > t) {
+                    std::cout << "Block " << i + nb << " claims inversion with block " << inv_i << " but has inversion with block " << j << "\n";
+                    x = false;
+                }
+            }
+        }
     }
 
-    // 1a) For each block x in [nb.. inv_i),
-    //     check GET_ENDPOINT(x) < e_i
-    for (uint32_t x = nb; x < inv_i && x < 2*nb; x++) {
-      if (GET_ENDPOINT(x) >= e_i) {
-        std::cerr << "ERROR: block " << i << " endpoint=" << e_i
-                  << " claims inv=" << inv_i
-                  << " but block " << x
-                  << " has endpoint=" << GET_ENDPOINT(x)
-                  << " >= e_i.\n";
-        allGood = false;
-      }
-    }
-
-    // 1b) If inv_i < 2*nb, check GET_ENDPOINT(inv_i) >= e_i
-    if (inv_i < 2*nb) {
-      if (GET_ENDPOINT(inv_i) < e_i) {
-        std::cerr << "ERROR: block " << i << " endpoint=" << e_i
-                  << " claims inv=" << inv_i
-                  << " but GET_ENDPOINT(inv_i)="
-                  << GET_ENDPOINT(inv_i) << " < e_i.\n";
-        allGood = false;
-      }
-    }
-  }
-
-  // ------------------------------------------------------------------------
-  // 2) For blocks in the RIGHT half [nb..2*nb-1]:
-  //    inv(i) should be in [0..nb], 
-  //    and be the first block in the left half whose endpoint >= GET_ENDPOINT(i).
-  // ------------------------------------------------------------------------
-  for (uint32_t i = nb; i < 2*nb; i++) {
-    auto e_i = GET_ENDPOINT(i);
-    uint32_t inv_i = inv_R(i);
-
-    // Check range: typically we expect inv_i < nb or inv_i=nb as a sentinel
-    // if your code does that. Adjust if your logic differs (e.g. "inv_i<=nb").
-    if (inv_i > nb) {
-      std::cerr << "ERROR: For block " << i << " in right half, inv_R(i)=" 
-                << inv_i << " is out of [0..nb].\n";
-      allGood = false;
-      continue;
-    }
-
-    // 2a) For each block x in [0.. inv_i),
-    //     check GET_ENDPOINT(x) < e_i
-    for (uint32_t x = 0; x < inv_i; x++) {
-      if (GET_ENDPOINT(x) >= e_i) {
-        std::cerr << "ERROR: block " << i << " endpoint=" << e_i
-                  << " claims inv=" << inv_i
-                  << " but block " << x
-                  << " has endpoint=" << GET_ENDPOINT(x)
-                  << " >= e_i.\n";
-        allGood = false;
-      }
-    }
-
-    // 2b) If inv_i < nb, check GET_ENDPOINT(inv_i) >= e_i
-    if (inv_i < nb) {
-      if (GET_ENDPOINT(inv_i) < e_i) {
-        std::cerr << "ERROR: block " << i << " endpoint=" << e_i
-                  << " claims inv=" << inv_i
-                  << " but GET_ENDPOINT(inv_i)="
-                  << GET_ENDPOINT(inv_i) << " < e_i.\n";
-        allGood = false;
-      }
-    }
-  }
-
-  return allGood;
+    return x;
 }
 
 void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
@@ -393,14 +346,8 @@ void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
 
     std::cout << "Setting Up...\n\n";
     SetUp(seq, b);
-
-    //assert(CheckInversionPointers(seq, b));
-
     std::cout << "End Sorting...\n\n";
     EndSort(seq, b, flag);
-
-    assert(IsEndSorted(seq, b));
-
     std::cout << "Seq Sorting...\n\n";
     SeqSort(seq, 0, (uint32_t)seq.size(), b);
 

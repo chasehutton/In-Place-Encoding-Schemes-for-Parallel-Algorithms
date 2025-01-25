@@ -198,7 +198,7 @@ bool CheckEachHalfSorted(const parlay::sequence<uint32_t>& testSequence) {
 }
 
 int main() {
-    size_t size = 1048576;
+    size_t size = 4194304;
 
     parlay::sequence<uint32_t> testSequence = generateUniqueTwoSortedHalves(size);
     assert(CheckEachHalfSorted(testSequence));
@@ -207,7 +207,7 @@ int main() {
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    Merge(testSequence, 1024);
+    Merge(testSequence, 2048);
 
     auto end = std::chrono::high_resolution_clock::now();
 
@@ -243,10 +243,10 @@ int main() {
     if (!IsSorted(testSequence)) {
         std::cout << "Not Sorted\n\n\n";
         std::cout << "Number of Inversion: " << CountInversions(testSequence);
-        for (int i = 0; i < 1024; i++) {
-            std::cout << testSequence[i] << "         ";
-            if (i % 10 == 0) std::cout << "\n\n";
-        }
+        // for (int i = 0; i < 1024; i++) {
+        //     std::cout << testSequence[i] << "         ";
+        //     if (i % 10 == 0) std::cout << "\n\n";
+        // }
         std::cout << "\n\n\n\n";
 
         auto e = ComputeAllInversions(testSequence);
