@@ -49,8 +49,8 @@ struct buffer {
     	parlay::parallel_for(0, enc.size()/2, [&] (uint32_t i) {
     		uint32_t idx1 = 2*i;
             uint32_t idx2 = 2*i + 1;
-            if (block[idx1] > block[idx2]) {
-            std::swap(block[idx1], block[idx2]);
+            if (enc[idx1] > enc[idx2]) {
+            std::swap(enc[idx1], enc[idx2]);
             }
     	});
     }

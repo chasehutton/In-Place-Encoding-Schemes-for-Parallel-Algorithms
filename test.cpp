@@ -9,12 +9,12 @@
 
 #include "utils.h"
 #include "merge.h"
-//#include "buffer.h"
+#include "buffer.h"
 
 
 
 #include "parlay/parallel.h"
-#include "parlay/sequence.h"
+// #include "parlay/sequence.h"
 #include "parlay/primitives.h"
 
 // This file contains GPT generated code for testing purposes
