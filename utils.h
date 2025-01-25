@@ -159,17 +159,27 @@ inline void merge(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*
 
 
 inline void PairwiseSort(parlay::slice<uint32_t*, uint32_t*> block) {
-  size_t n = block.size();
+  uint32_t n = block.size();
   // If n is odd, the last element has no partner
-  size_t limit = n - (n % 2);
+  uint32_t limit = n - (n % 2);
 
-  // For each pair (2i, 2i+1), swap if out of order
-  parlay::parallel_for(0, limit/2, [&](size_t i){
-    size_t idx1 = 2*i;
-    size_t idx2 = 2*i + 1;
-    if (block[idx1] > block[idx2]) {
-      std::swap(block[idx1], block[idx2]);
+  if (n <= 1024) {
+    for (int i = 0; i < limit/2; i++) {
+        uint32_t idx1 = 2*i;
+        uint32_t idx2 = 2*i + 1;
+        if (block[idx1] > block[idx2]) {
+        std::swap(block[idx1], block[idx2]);
+        }
     }
-  });
+  } else {
+     // For each pair (2i, 2i+1), swap if out of order
+        parlay::parallel_for(0, limit/2, [&](uint32_t i){
+            uint32_t idx1 = 2*i;
+            uint32_t idx2 = 2*i + 1;
+            if (block[idx1] > block[idx2]) {
+            std::swap(block[idx1], block[idx2]);
+            }
+        });
+  }
 }
 

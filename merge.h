@@ -232,6 +232,7 @@ void SeqSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint
         // Do something optimal
     } else { 
         if (n <= 2*b) {
+            // Separate(seq, start, end, b);
             if (b <= 128) {
                 BubbleSort(seq, start, end);
             } else if (b <= 8192) {
@@ -250,9 +251,6 @@ void SeqSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint
             return;
         }
     }
-
-
- 
 
     Separate(seq, start, end, b);
 
