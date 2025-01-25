@@ -10,7 +10,7 @@
 #include "utils.h"
 #include "merge.h"
 #include "buffer.h"
-
+#include "merge_buffer.h"
 
 
 #include "parlay/parallel.h"

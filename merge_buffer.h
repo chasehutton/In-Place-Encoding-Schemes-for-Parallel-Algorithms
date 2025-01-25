@@ -17,7 +17,7 @@
 #include "parlay/utilities.h"
 
 #include "parlay/internal/binary_search.h"
-#include "parlay/internal/parallel.h"
+#include "parlay/parallel.h"
 
 #define SEGMENT_SIZE 64
 
@@ -72,11 +72,11 @@ void distribute (	parlay::slice<uint32_t*,uint32_t*> aux,
 					parlay::slice<uint32_t*,uint32_t*> B) {
 	uint32_t nA = A.size();
 	uint32_t nB = B.size();
-	parallel_for(0, nA, [&](uint32_t i) {
-    	A[i] = aux[i]
+	parlay::parallel_for(0, nA, [&](uint32_t i) {
+    	A[i] = aux[i];
   	});
-  	parallel_for(0, nB, [&](uint32_t i) {
-		B[i] = aux[nA+i]
+  	parlay::parallel_for(0, nB, [&](uint32_t i) {
+		B[i] = aux[nA+i];
 	});
 }
 
@@ -88,7 +88,7 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
 	uint32_t g = 300
     uint32_t r = n/g;
 
-    buffer Buffer = new buffer(
+    buffer Buffer = buffer(
     							r,
 								parlay::make_slice(A.begin()-131*r, A.begin()+n-129*r),
 								parlay::make_slice(A.begin()-129*r, A.begin()+n-r),
