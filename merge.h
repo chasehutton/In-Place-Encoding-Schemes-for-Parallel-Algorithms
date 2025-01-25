@@ -192,7 +192,7 @@ void EndSort(parlay::sequence<uint32_t>& seq, uint32_t b, bool* flag) {
 }
 
 // Assumes nb >= 2
-inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint32_t b) { 
+inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint32_t b, bool base_case) { 
     uint32_t nb = (end - start) / b;
     uint32_t i = (start / b) + (nb / 2) - 1;
     uint32_t j = std::min((start / b) + nb - 1, inv_R(i));
@@ -216,9 +216,11 @@ inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t e
         merge(A, B);
     }
 
+    if (!base_case) {
     // restore the inversion pointers
-    inv_W(i, A_inv);
-    inv_W(j, B_inv);
+        inv_W(i, A_inv);
+        inv_W(j, B_inv);
+    }
 }
 
 void SeqSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint32_t b) {
@@ -232,27 +234,12 @@ void SeqSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint
         // Do something optimal
     } else { 
         if (n <= 2*b) {
-            // Separate(seq, start, end, b);
-            if (b <= 128) {
-                BubbleSort(seq, start, end);
-            } else if (b <= 8192) {
-                auto A = parlay::make_slice(seq.begin() + start,
-                                            seq.begin() + mid);
-                auto B = parlay::make_slice(seq.begin() + mid,
-                                            seq.begin() + end);
-                            
-                PairwiseSort(A);
-                PairwiseSort(B);
-                merge(A, B);
-            } else {
-                // Parallel Merge Out-Of-Place
-            }
-
+            Separate(seq, start, end, b, true);
             return;
         }
     }
 
-    Separate(seq, start, end, b);
+    Separate(seq, start, end, b, false);
 
     parlay::par_do( 
         [&] {
