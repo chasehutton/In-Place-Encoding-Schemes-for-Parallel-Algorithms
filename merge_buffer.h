@@ -85,7 +85,7 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
 	auto start = std::chrono::high_resolution_clock().now();
 	
 	uint32_t n = A.size();
-	uint32_t g = 300
+	uint32_t g = 300;
     uint32_t r = n/g;
 
     buffer Buffer = buffer(
@@ -111,7 +111,7 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
 		distribute(Buffer.aux, E, F);
 	}
 
-	Buffer.Restore();
+	Buffer.restore();
 
 	Buffer.aux = parlay::make_slice(A.begin(), A.begin()+2*r);
 	Buffer.enc = parlay::make_slice(A.begin()+2*r, A.begin()+130*r),
