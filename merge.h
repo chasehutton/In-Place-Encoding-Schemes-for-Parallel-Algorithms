@@ -264,32 +264,6 @@ void SeqSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint
     );
 }
 
-// GPT code to check if endsorted
-bool IsEndSorted(const parlay::sequence<uint32_t>& seq, uint32_t b) {
-  // number of blocks
-  uint32_t nBlocks = seq.size() / b;
-  
-  // If only 0 or 1 block, trivially "end-sorted" by endpoints
-  if (nBlocks <= 1) return true;
-
-  // Check each adjacent pair of blocks
-  for (uint32_t i = 1; i < nBlocks; i++) {
-    // Compare block (i-1)'s endpoint with block i's endpoint
-    if (GET_ENDPOINT(i - 1) > GET_ENDPOINT(i)) {
-      std::cout << "Endpoints out of order between blocks "
-                << (i - 1) << " and " << i
-                << ": GET_ENDPOINT(" << (i - 1) << ")="
-                << GET_ENDPOINT(i - 1)
-                << " > GET_ENDPOINT(" << i << ")="
-                << GET_ENDPOINT(i)
-                << "\n";
-      return false;
-    }
-  }
-
-  return true;  // No violations found
-}
-
 bool CheckInversionPointers(parlay::sequence<uint32_t>& seq, uint32_t b) {
     uint32_t nb = seq.size()/(2*b);
     bool x = true;
