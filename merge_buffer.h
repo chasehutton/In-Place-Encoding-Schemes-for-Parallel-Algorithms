@@ -17,14 +17,14 @@
 
 #define SEGMENT_SIZE 64
 
-inline uint32_t log2(uint32_t x) {
-	uint32_t e = -1;
- 	for(int i = 0; i < 32; i++) {
- 		if (x & 1) e = i;
- 		x >> 1;
- 	}
- 	return e;
-}
+// const inline uint32_t log2(uint32_t x) {
+// 	uint32_t e = -1;
+//  	for(int i = 0; i < 32; i++) {
+//  		if (x & 1) e = i;
+//  		x >> 1;
+//  	}
+//  	return e;
+// }
 
 void set_up(parlay::sequence<uint32_t>& seq, buffer& Buffer, uint32_t c) {
 	
@@ -37,12 +37,12 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B,  uint32
     assert(b % 2 == 0);
     assert(b >= 5*SEGMENT_SIZE);
 
-	uint32_t n = seq.size();
-    uint32_t r = n/(segment*log2(n));
+	uint32_t n = A.size();
+    uint32_t r = n/140;
 
-    r + r log2(n)
-
-    buffer Buffer = new buffer(parlay::make_slice());
+    buffer BufferA = new buffer(
+								parlay::make_slice(A.begin()-65*r, A.begin()+n-3*r),
+								
 
     bool* flag = (bool*) std::malloc(sizeof(bool));
     *flag = false;
