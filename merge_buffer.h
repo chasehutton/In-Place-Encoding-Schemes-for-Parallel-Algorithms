@@ -67,9 +67,23 @@
 // }
 
 
-
+void distribute (	parlay::slice<uint32_t*,uint32_t*> aux,
+					parlay::slice<uint32_t*,uint32_t*> A,
+					parlay::slice<uint32_t*,uint32_t*> B) {
+	uint32_t nA = A.size();
+	uint32_t nB = B.size();
+	parallel_for(0, nA, [&](uint32_t i) {
+    	A[i] = aux[i]
+  	});
+  	parallel_for(0, nB, [&](uint32_t i) {
+		B[i] = aux[nA+i]
+	});
+}
 
 void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
+	std::cout << "Buffer Merging...\n\n";
+	auto start = std::chrono::high_resolution_clock().now();
+	
 	uint32_t n = A.size();
 	uint32_t g = 300
     uint32_t r = n/g;
@@ -84,41 +98,52 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
 	for (int i = 0; i < 150; i++) {
 		auto C = parlay::make_slice(A.begin()+i*r, A.begin()+i*r+r);
 		auto D = parlay::make_slice(A.begin()+n-r, A.end());
-		auto E = parlay::make_slice(B.begin()+n-i*r-r, B.end()-i*r);
-		auto F = parlay::make_slice(B.begin(), B.begin()+r);
+		auto E = parlay::make_slice(B.begin(), B.begin()+r);
+		auto F = parlay::make_slice(B.begin()+n-i*r-r, B.end()-i*r);
 
-		merge_into(D, E, Buffer);
-		distribute(Buffer,D,E);
+		merge_into(D, E, Buffer.aux);
+		distribute(Buffer.aux, D, E);
 		
-		merge_into(C, D, Buffer);
-		distribute(Buffer,D,E);
+		merge_into(C, D, Buffer.aux);
+		distribute(Buffer.aux, C, D);
 		
-		merge_into(D, E, Buffer);
-		distribute(Buffer,D,E);
+		merge_into(E, F, Buffer.aux);
+		distribute(Buffer.aux, E, F);
 	}
-	
 
-    bool* flag = (bool*) std::malloc(sizeof(bool));
-    *flag = false;
-    std::cout << "Setting Up...\n\n";
-    auto start = std::chrono::high_resolution_clock().now();
-    SetUp(seq, b);
+	Buffer.Restore();
+
+	Buffer.aux = parlay::make_slice(A.begin(), A.begin()+2*r);
+	Buffer.enc = parlay::make_slice(A.begin()+2*r, A.begin()+130*r),
+
+	Buffer.initialize();
+
+	for (int i = 150; i < 299; i++) {
+		auto C = parlay::make_slice(A.begin()+i*r, A.begin()+i*r+r);
+		auto D = parlay::make_slice(A.begin()+n-r, A.end());
+		auto E = parlay::make_slice(B.begin(), B.begin()+r);
+		auto F = parlay::make_slice(B.begin()+n-i*r-r, B.end()-i*r);
+
+		merge_into(D, E, Buffer.aux);
+		distribute(Buffer.aux, D, E);
+		
+		merge_into(C, D, Buffer.aux);
+		distribute(Buffer.aux, C, D);
+		
+		merge_into(E, F, Buffer.aux);
+		distribute(Buffer.aux, E, F);
+	}
+
+	auto D = parlay::make_slice(A.begin()+n-r, A.end());
+	auto E = parlay::make_slice(B.begin(), B.begin()+r);
+	merge_into(D, E, Buffer.aux);
+	distribute(Buffer.aux, D, E);
+
+	Buffer.restore();
+	
     auto end = std::chrono::high_resolution_clock().now();
     auto time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
-    std::cout << "Time for SetUp: " << time.count() << " \n";
-    std::cout << "End Sorting...\n\n";
-    start = std::chrono::high_resolution_clock().now();
-    EndSort(seq, b, flag);
-    end = std::chrono::high_resolution_clock().now();
-    time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
-    std::cout << "Time for EndSort: " << time.count() << " \n";
-    std::cout << "Seq Sorting...\n\n";
-    start = std::chrono::high_resolution_clock().now();
-    SeqSort(seq, 0, (uint32_t)seq.size(), b);
-    end = std::chrono::high_resolution_clock().now();
-    time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
-    std::cout << "Time for SeqSort: " << time.count() << " \n";
-
-    std::free(flag);
+    
+    std::cout << "Time for Buffer Merge: " << time.count() << " \n";
 }
 
