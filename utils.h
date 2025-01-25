@@ -91,6 +91,17 @@ inline void WriteBlock(parlay::sequence<uint32_t>& block, uint32_t start, uint32
         } 
     }
 }
+inline void WriteBlock(parlay::slice<uint32_t*, uint32_t*> block, uint32_t start, uint32_t end, uint32_t value) {
+    uint32_t size = end - start;
+    for (int i = 0; i < (size/2); i++) {
+        bool bit = (value >> i) & 1U;
+        uint32_t& first = block[start + 2*i];
+        uint32_t& second = block[start + 2*i + 1];
+        if ((!bit && first > second) || (bit && first < second)) {
+            std::swap(first, second);
+        } 
+    }
+}
 
 inline void WriteBlock(parlay::slice<uint32_t*, uint32_t*> block, uint32_t value) {
     uint32_t size = block.size();
