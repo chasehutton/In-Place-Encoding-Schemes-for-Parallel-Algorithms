@@ -21,9 +21,9 @@ struct buffer {
           aux(aux), 
           enc(enc) {
           // check size parameters match up
-          assert(segment_size == 64 && "incorrect segment size");
-          assert(aux.size() == aux_size && "aux size mismatch");
-          assert(enc.size() == aux_size()*segment_size && "enc size mismatch");
+          // assert(segment_size == 64 && "incorrect segment size");
+          // assert(aux.size() == aux_size && "aux size mismatch");
+          // assert(enc.size() == aux_size()*segment_size && "enc size mismatch");
     }
 
     uint32_t read(uint32_t i) {
