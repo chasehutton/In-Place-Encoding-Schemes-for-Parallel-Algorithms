@@ -181,7 +181,7 @@ void EndSort(parlay::sequence<uint32_t>& seq, uint32_t b, bool* flag) {
             auto t = T_R(i);
 
             // Swap the blocks [i*b, i*b+b) and [t*b, t*b+b)
-            SwapBlock(seq, i*b, i*b + b, t*b, t*b + b);
+            SwapBlockCpy(seq, i*b, i*b + b, t*b, t*b + b);
 
             // if T(i)==i => D(i)=1
             if (T_R(i) == i) {
