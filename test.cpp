@@ -9,6 +9,7 @@
 
 #include "utils.h"
 #include "merge.h"
+#include "buffer.h"
 
 
 
