@@ -7,15 +7,16 @@
 
 
 #include "utils.h"
+#include "buffer.h"
+
 #include "parlay/sequence.h"
 #include "parlay/internal/uninitialized_sequence.h"
 #include "parlay/parallel.h"
 #include "parlay/primitives.h"
 #include "parlay/random.h"
 
-
 void set_up(parlay::sequence<uint32_t>& seq, uint32_t c) {
-	
+	buffer 
 }
 
 
