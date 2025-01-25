@@ -9,7 +9,7 @@
 
 #include "utils.h"
 #include "merge.h"
-#include "buffer.h"
+//#include "buffer.h"
 
 
 
@@ -18,108 +18,6 @@
 #include "parlay/primitives.h"
 
 // This file contains GPT generated code for testing purposes
-
-
-
-std::vector<std::pair<size_t,size_t>>
-ComputeAllInversions(const parlay::sequence<uint32_t>& seq)
-{
-  std::vector<std::pair<size_t,size_t>> inversions;
-  size_t n = seq.size();
-
-  for (size_t i = 0; i < n; i++) {
-    for (size_t j = i + 1; j < n; j++) {
-      if (seq[i] > seq[j]) {
-        // This is an inversion
-        inversions.push_back({i, j});
-      }
-    }
-  }
-  return inversions;
-}
-
-
-// A helper function that merges two sorted halves [start,mid) and [mid,end)
-// in-place, counting how many cross-inversions occur.
-// Returns the number of inversions found in the merge step.
-static std::size_t mergeAndCount(parlay::sequence<uint32_t>& arr,
-                                 std::size_t start,
-                                 std::size_t mid,
-                                 std::size_t end)
-{
-  // We'll copy the two halves, then merge back
-  std::size_t lenA = mid - start;
-  std::size_t lenB = end - mid;
-
-  parlay::sequence<uint32_t> left(lenA);
-  parlay::sequence<uint32_t> right(lenB);
-
-  // Copy data
-  for (std::size_t i = 0; i < lenA; i++) {
-    left[i] = arr[start + i];
-  }
-  for (std::size_t j = 0; j < lenB; j++) {
-    right[j] = arr[mid + j];
-  }
-
-  // Merge them back into arr[start..end)
-  std::size_t i = 0;
-  std::size_t j = 0;
-  std::size_t k = start;
-
-  std::size_t inversions = 0;
-
-  while (i < lenA && j < lenB) {
-    if (left[i] <= right[j]) {
-      arr[k++] = left[i++];
-    } else {
-      // left[i] > right[j] => each element left[i..(lenA-1)]
-      // is greater than right[j]. So we add (lenA - i) to inversions.
-      arr[k++] = right[j++];
-      inversions += (lenA - i);
-    }
-  }
-
-  // Copy any remaining
-  while (i < lenA) {
-    arr[k++] = left[i++];
-  }
-  while (j < lenB) {
-    arr[k++] = right[j++];
-  }
-
-  return inversions;
-}
-
-// Recursive function that sorts arr[start..end) and returns #inversions
-static std::size_t mergeSortCount(parlay::sequence<uint32_t>& arr,
-                                  std::size_t start,
-                                  std::size_t end)
-{
-  std::size_t n = end - start;
-  if (n <= 1) {
-    // 0 or 1 element => no inversions
-    return 0;
-  }
-  // Divide
-  std::size_t mid = start + (n / 2);
-
-  // Conquer
-  std::size_t leftCount = mergeSortCount(arr, start, mid);
-  std::size_t rightCount = mergeSortCount(arr, mid, end);
-
-  // Combine
-  std::size_t mergeCount = mergeAndCount(arr, start, mid, end);
-
-  return leftCount + rightCount + mergeCount;
-}
-
-// Public function: returns the total #inversions in the sequence
-std::size_t CountInversions(parlay::sequence<uint32_t> seq) {
-  // We'll sort a copy of seq in-place (or you could sort seq directly
-  // if you don't mind altering it).
-  return mergeSortCount(seq, 0, seq.size());
-}
 
 bool IsSorted(const parlay::sequence<uint32_t>& seq) {
   // A sequence with 0 or 1 elements is trivially sorted
