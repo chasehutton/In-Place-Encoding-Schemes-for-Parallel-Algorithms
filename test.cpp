@@ -158,7 +158,7 @@ void driver(uint32_t n, uint32_t k) {
     double total_time1 = std::accumulate(times1.begin(), times1.end(), 0.0);
     double avg_time1 = total_time1 / k;
 
-    double total_time2 = std::accumulate(times2.begin(), times1.end(), 0.0);
+    double total_time2 = std::accumulate(times2.begin(), times2.end(), 0.0);
     double avg_time2 = total_time2 / k;
 
     std::cout << "\n\nAvg Time In Microseconds for In-Place Merge: " << avg_time1 << "\n\n";
@@ -167,7 +167,7 @@ void driver(uint32_t n, uint32_t k) {
 }
 
 int main() {
-    uint32_t size = 67108864;
+    uint32_t size = 4194304;
     driver(size, 1000);
 
     // parlay::sequence<uint32_t> testSequence = Gen2(size);
