@@ -219,37 +219,6 @@ inline void merge(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*
     std::copy(temp.begin()+n, temp.end(), B.begin());
 }
 
-inline void merge2(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*, uint32_t*> B) {
-    constexpr size_t BLOCK_SIZE = 256;  // Tune based on cache line size
-    const size_t n = A.size();
-    
-    // Phase 1: Parallel merge using Parlay's built-in
-    auto merged = parlay::internal::merge(A, B, std::less<uint32_t>{});
-
-    // Phase 2: Parallel scatter with cache-friendly blocks
-    parlay::parallel_for(0, 2 * n / BLOCK_SIZE, [&](size_t block) {
-        const size_t start = block * BLOCK_SIZE;
-        const size_t end = std::min(start + BLOCK_SIZE, 2 * n);
-        
-        if (start < n) {
-            const size_t a_start = start;
-            const size_t a_end = std::min(end, n);
-            std::copy(merged.begin() + a_start, 
-                     merged.begin() + a_end, 
-                     A.begin() + a_start);
-        }
-        
-        if (end > n) {
-            const size_t b_start = std::max(start, n) - n;
-            const size_t b_end = end - n;
-            std::copy(merged.begin() + start + n, 
-                     merged.begin() + end + n, 
-                     B.begin() + b_start);
-        }
-    }, 1);  // Force 1 microtask per block for better locality
-}
-
-
 inline void PairwiseSort(parlay::slice<uint32_t*, uint32_t*> block) {
   uint32_t n = block.size();
   // If n is odd, the last element has no partner
