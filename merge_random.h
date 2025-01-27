@@ -206,8 +206,23 @@ inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t e
     uint32_t i = (start / b) + (nb / 2) - 1;
     auto e = start/b + nb - 1;
     auto inv = inv_R(i);
+
     if (inv > e && !base_case) return;
 
+    // if (inv > e) {
+    //     if (!base_case) return;
+    //     else {            
+    //         auto A = parlay::make_slice(seq.begin() + i*b,
+    //                             seq.begin() + i*b + b);
+    //         auto B = parlay::make_slice(seq.begin() + e*b,
+    //                             seq.begin() + e*b + b);
+    //         PairwiseSort(A);
+    //         PairwiseSort(B);
+    //         return;
+    //     }
+    // } 
+
+   
     uint32_t j = std::min(e, inv);
 
     // Save old inv
@@ -337,26 +352,26 @@ void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
 
     bool* flag = (bool*) std::malloc(sizeof(bool));
     *flag = false;
-    std::cout << "Setting Up...\n\n";
-    auto start = std::chrono::high_resolution_clock().now();
+    // std::cout << "Setting Up...\n\n";
+    // auto start = std::chrono::high_resolution_clock().now();
     SetUp(seq, b);
-    auto end = std::chrono::high_resolution_clock().now();
-    auto time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
-    //assert(CheckInversionPointers(seq, b));
-    std::cout << "Time for SetUp: " << time.count() << " \n";
-    std::cout << "End Sorting...\n\n";
-    start = std::chrono::high_resolution_clock().now();
+    // auto end = std::chrono::high_resolution_clock().now();
+    // auto time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+    // //assert(CheckInversionPointers(seq, b));
+    // std::cout << "Time for SetUp: " << time.count() << " \n";
+    // std::cout << "End Sorting...\n\n";
+    // start = std::chrono::high_resolution_clock().now();
     EndSort(seq, b, flag);
-    end = std::chrono::high_resolution_clock().now();
-    time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
-    //assert(CheckEndSorted(seq, b));
-    std::cout << "Time for EndSort: " << time.count() << " \n";
-    std::cout << "Seq Sorting...\n\n";
-    start = std::chrono::high_resolution_clock().now();
+    // end = std::chrono::high_resolution_clock().now();
+    // time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+    // //assert(CheckEndSorted(seq, b));
+    // std::cout << "Time for EndSort: " << time.count() << " \n";
+    // std::cout << "Seq Sorting...\n\n";
+    // start = std::chrono::high_resolution_clock().now();
     SeqSort(seq, 0, (uint32_t)seq.size(), b);
-    end = std::chrono::high_resolution_clock().now();
-    time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
-    std::cout << "Time for SeqSort: " << time.count() << " \n";
+    // end = std::chrono::high_resolution_clock().now();
+    // time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+    // std::cout << "Time for SeqSort: " << time.count() << " \n";
     //assert(CheckSorted(seq));
 
     std::free(flag);

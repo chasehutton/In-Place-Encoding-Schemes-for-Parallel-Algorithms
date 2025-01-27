@@ -192,7 +192,6 @@ inline void BubbleSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t
 }
 
 // Simple Out-Of-Place Merge
-
 inline void merge(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*, uint32_t*> B) {
     auto n = A.size();
     parlay::sequence<uint32_t> temp(2 * n);

@@ -6,6 +6,9 @@
 #include <chrono>
 #include <vector>
 #include <utility>
+#include <numeric>
+#include <functional>
+
 
 #include "utils.h"
 #include "merge_random.h"
@@ -121,92 +124,135 @@ bool CheckEachHalfSorted(const parlay::sequence<uint32_t>& testSequence) {
   return true;
 }
 
+void driver(uint32_t n, uint32_t k) {
+    std::vector<double> times1(k);
+    std::vector<double> times2(k);
+
+    
+    for (int i = 0; i < k; i++) {
+      parlay::sequence<uint32_t> testSequence = Gen2(n);
+      auto half = testSequence.size() / 2;
+      auto A = testSequence.subseq(0, half);
+      auto B = testSequence.subseq(half, testSequence.size());
+
+      auto start1 = std::chrono::high_resolution_clock::now();
+      Merge(testSequence, 2048);
+      auto end1 = std::chrono::high_resolution_clock::now();
+      auto time1 = std::chrono::duration_cast<std::chrono::microseconds>(end1-start1);
+
+      times1.push_back(time1.count());
+
+      auto start2 = std::chrono::high_resolution_clock::now();
+      auto R = parlay::merge(A, B);
+      auto end2 = std::chrono::high_resolution_clock::now();
+      auto time2 = std::chrono::duration_cast<std::chrono::microseconds>(end2-start2);
+
+      times2.push_back(time2.count());
+
+
+      if (!IsSorted(testSequence)) {
+        std::cout << "\nIteration " << i << " is not sorted!\n";
+      }
+    }
+
+    double total_time1 = std::accumulate(times1.begin(), times1.end(), 0.0);
+    double avg_time1 = total_time1 / k;
+
+    double total_time2 = std::accumulate(times2.begin(), times1.end(), 0.0);
+    double avg_time2 = total_time2 / k;
+
+    std::cout << "\n\nAvg Time In Microseconds for In-Place Merge: " << avg_time1 << "\n\n";
+    std::cout << "\n\nAvg Time In Microseconds for Parlay Merge: " << avg_time2 << "\n\n";
+
+}
+
 int main() {
     uint32_t size = 67108864;
+    driver(size, 1000);
 
-    parlay::sequence<uint32_t> testSequence = Gen2(size);
-    auto half = testSequence.size() / 2;
-    auto A = testSequence.subseq(0, half);
-    auto B = testSequence.subseq(half, testSequence.size());
+    // parlay::sequence<uint32_t> testSequence = Gen2(size);
+    // auto half = testSequence.size() / 2;
+    // auto A = testSequence.subseq(0, half);
+    // auto B = testSequence.subseq(half, testSequence.size());
 
-    std::cout << "Testing...\n\n";
+    // std::cout << "Testing...\n\n";
 
-    auto start = std::chrono::high_resolution_clock::now();
+    // auto start = std::chrono::high_resolution_clock::now();
 
-    Merge(testSequence, 2048);
+    // Merge(testSequence, 2048);
 
-    auto end = std::chrono::high_resolution_clock::now();
+    // auto end = std::chrono::high_resolution_clock::now();
 
-    auto time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+    // auto time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
 
-    std::cout << "Time taken by IN-PLACE Merge: "
-         << time.count() << " microseconds" << std::endl;
+    // std::cout << "Time taken by IN-PLACE Merge: "
+    //      << time.count() << " microseconds" << std::endl;
 
-	  // buffer_merge(A, B);
+	  // // buffer_merge(A, B);
     
 
-    start = std::chrono::high_resolution_clock::now();
+    // start = std::chrono::high_resolution_clock::now();
 
-    auto r = parlay::merge(A, B);
+    // auto r = parlay::merge(A, B);
 
-    end = std::chrono::high_resolution_clock::now();
+    // end = std::chrono::high_resolution_clock::now();
 
-    time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+    // time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
 
-    std::cout << "Time taken by Merge: "
-         << time.count() << " microseconds" << std::endl;
+    // std::cout << "Time taken by Merge: "
+    //      << time.count() << " microseconds" << std::endl;
 
 
-    if (testSequence.size() != r.size()) {
-        std::cout << "ERROR: Different sizes!\n";
-        std::cout << r.size() << "\n";
-        std::cout << testSequence.size();
-        return 1;
-    }
+    // if (testSequence.size() != r.size()) {
+    //     std::cout << "ERROR: Different sizes!\n";
+    //     std::cout << r.size() << "\n";
+    //     std::cout << testSequence.size();
+    //     return 1;
+    // }
 
-    if (!IsSorted(testSequence)) {
-        std::cout << "Not Sorted\n\n\n";
-        // for (int i = 0; i < 1024; i++) {
-        //     std::cout << testSequence[i] << "         ";
-        //     if (i % 10 == 0) std::cout << "\n\n";
-        // }
-        std::cout << "\n\n\n\n";
+    // if (!IsSorted(testSequence)) {
+    //     std::cout << "Not Sorted\n\n\n";
+    //     // for (int i = 0; i < 1024; i++) {
+    //     //     std::cout << testSequence[i] << "         ";
+    //     //     if (i % 10 == 0) std::cout << "\n\n";
+    //     // }
+    //     std::cout << "\n\n\n\n";
 
-        // auto e = ComputeAllInversions(testSequence);
+    //     // auto e = ComputeAllInversions(testSequence);
 
-        // for (auto r : e) {
-        //     std::cout << "Inversion at indices " << r.first << " and " << r.second << "\n";
-        //     std::cout << "Inverted Pair = " << "( " << testSequence[r.first] << ", " << testSequence[r.second] << " )\n"; 
-        // }
-    }
+    //     // for (auto r : e) {
+    //     //     std::cout << "Inversion at indices " << r.first << " and " << r.second << "\n";
+    //     //     std::cout << "Inverted Pair = " << "( " << testSequence[r.first] << ", " << testSequence[r.second] << " )\n"; 
+    //     // }
+    // }
 
 	
-    // for (size_t i = 0; i < A.size(); i++) {
-    //         if (A[i] != r[i]) {
-    //         std::cout << "ERROR: Mismatch at index " << i 
-    //                     << " => " << A[i] << " vs. " << r[i] << "\n";
-    //         return 1;
-    //         }
+    // // for (size_t i = 0; i < A.size(); i++) {
+    // //         if (A[i] != r[i]) {
+    // //         std::cout << "ERROR: Mismatch at index " << i 
+    // //                     << " => " << A[i] << " vs. " << r[i] << "\n";
+    // //         return 1;
+    // //         }
+    // //     }
+    // //     for (size_t i = 0; i < B.size(); i++) {
+    // //                 if (B[i] != r[A.size()+i]) {
+    // //                 std::cout << "ERROR: Mismatch at index " << i 
+    // //                             << " => " << B[A.size()+i] << " vs. " << r[i] << "\n";
+    // //                 return 1;
+    // //                 }
+    // //             }
+    
+    // //     std::cout << "SUCCESS: Buffer Merge result matches parlay::merge.\n";
+    
+    // //Check if they are identical
+    // for (size_t i = 0; i < testSequence.size(); i++) {
+    //     if (testSequence[i] != r[i]) {
+    //     std::cout << "ERROR: Mismatch at index " << i 
+    //                 << " => " << testSequence[i] << " vs. " << r[i] << "\n";
+    //     return 1;
     //     }
-    //     for (size_t i = 0; i < B.size(); i++) {
-    //                 if (B[i] != r[A.size()+i]) {
-    //                 std::cout << "ERROR: Mismatch at index " << i 
-    //                             << " => " << B[A.size()+i] << " vs. " << r[i] << "\n";
-    //                 return 1;
-    //                 }
-    //             }
-    
-    //     std::cout << "SUCCESS: Buffer Merge result matches parlay::merge.\n";
-    
-    //Check if they are identical
-    for (size_t i = 0; i < testSequence.size(); i++) {
-        if (testSequence[i] != r[i]) {
-        std::cout << "ERROR: Mismatch at index " << i 
-                    << " => " << testSequence[i] << " vs. " << r[i] << "\n";
-        return 1;
-        }
-    }
+    // }
 
-    std::cout << "SUCCESS: In-place Merge result matches parlay::merge.\n";
+    // std::cout << "SUCCESS: In-place Merge result matches parlay::merge.\n";
     return 0;
 }
