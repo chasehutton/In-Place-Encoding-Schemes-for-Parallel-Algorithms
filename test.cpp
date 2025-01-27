@@ -8,7 +8,7 @@
 #include <utility>
 
 #include "utils.h"
-#include "merge.h"
+#include "merge_random.h"
 #include "buffer.h"
 #include "merge_buffer.h"
 
@@ -16,6 +16,31 @@
 #include "parlay/parallel.h"
 // #include "parlay/sequence.h"
 #include "parlay/primitives.h"
+
+auto Gen2 (uint64_t n) {
+    std::random_device rd;
+    uint64_t salt = rd();
+    auto seq = parlay::random_permutation(n, salt);
+    // auto A = parlay::make_slice(seq.begin(), seq.begin() + mid);
+    // auto B = parlay::make_slice(seq.begin() + mid, seq.end());
+
+    // auto C = parlay::integer_sort(A);
+    // auto D = parlay::integer_sort(B);
+
+
+    size_t mid = n / 2;
+
+    parlay::parallel_do(
+        [&] { parlay::integer_sort_inplace(parlay::make_slice(seq.begin(), seq.begin() + mid)); },
+        [&] { parlay::integer_sort_inplace(parlay::make_slice(seq.begin() + mid, seq.end())); }
+    );
+
+    parlay::sequence<uint32_t> seq32 = parlay::map(seq, [](size_t x) -> uint32_t {
+        return static_cast<uint32_t>(x);
+    });
+    return seq32;
+}
+
 
 // This file contains GPT generated code for testing purposes
 
@@ -97,10 +122,12 @@ bool CheckEachHalfSorted(const parlay::sequence<uint32_t>& testSequence) {
 }
 
 int main() {
-    size_t size = 4194304;
+    uint32_t size = 67108864;
 
-    parlay::sequence<uint32_t> testSequence = generateUniqueTwoSortedHalves(size);
-    assert(CheckEachHalfSorted(testSequence));
+    parlay::sequence<uint32_t> testSequence = Gen2(size);
+    auto half = testSequence.size() / 2;
+    auto A = testSequence.subseq(0, half);
+    auto B = testSequence.subseq(half, testSequence.size());
 
     std::cout << "Testing...\n\n";
 
@@ -115,12 +142,7 @@ int main() {
     std::cout << "Time taken by IN-PLACE Merge: "
          << time.count() << " microseconds" << std::endl;
 
-
-    auto half = testSequence.size() / 2;
-    auto A = testSequence.subseq(0, half);
-    auto B = testSequence.subseq(half, testSequence.size());
-
-	buffer_merge(A, B);
+	  // buffer_merge(A, B);
     
 
     start = std::chrono::high_resolution_clock::now();
@@ -159,32 +181,32 @@ int main() {
     }
 
 	
-    for (size_t i = 0; i < A.size(); i++) {
-            if (A[i] != r[i]) {
-            std::cout << "ERROR: Mismatch at index " << i 
-                        << " => " << A[i] << " vs. " << r[i] << "\n";
-            return 1;
-            }
+    // for (size_t i = 0; i < A.size(); i++) {
+    //         if (A[i] != r[i]) {
+    //         std::cout << "ERROR: Mismatch at index " << i 
+    //                     << " => " << A[i] << " vs. " << r[i] << "\n";
+    //         return 1;
+    //         }
+    //     }
+    //     for (size_t i = 0; i < B.size(); i++) {
+    //                 if (B[i] != r[A.size()+i]) {
+    //                 std::cout << "ERROR: Mismatch at index " << i 
+    //                             << " => " << B[A.size()+i] << " vs. " << r[i] << "\n";
+    //                 return 1;
+    //                 }
+    //             }
+    
+    //     std::cout << "SUCCESS: Buffer Merge result matches parlay::merge.\n";
+    
+    //Check if they are identical
+    for (size_t i = 0; i < testSequence.size(); i++) {
+        if (testSequence[i] != r[i]) {
+        std::cout << "ERROR: Mismatch at index " << i 
+                    << " => " << testSequence[i] << " vs. " << r[i] << "\n";
+        return 1;
         }
-        for (size_t i = 0; i < B.size(); i++) {
-                    if (B[i] != r[A.size()+i]) {
-                    std::cout << "ERROR: Mismatch at index " << i 
-                                << " => " << B[A.size()+i] << " vs. " << r[i] << "\n";
-                    return 1;
-                    }
-                }
-    
-        std::cout << "SUCCESS: Buffer Merge result matches parlay::merge.\n";
-    
-    // Check if they are identical
-//     for (size_t i = 0; i < testSequence.size(); i++) {
-//         if (testSequence[i] != r[i]) {
-//         std::cout << "ERROR: Mismatch at index " << i 
-//                     << " => " << testSequence[i] << " vs. " << r[i] << "\n";
-//         return 1;
-//         }
-//     }
-// 
-//     std::cout << "SUCCESS: In-place Merge result matches parlay::merge.\n";
+    }
+
+    std::cout << "SUCCESS: In-place Merge result matches parlay::merge.\n";
     return 0;
 }

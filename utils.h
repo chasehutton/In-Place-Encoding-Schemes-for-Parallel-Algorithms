@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <cstring> 
 
-
 #include "parlay/sequence.h"
 #include "parlay/parallel.h"
+#include "parlay/internal/merge.h"
 
 ///////////////////////////////////////////////////////////
 // Blocks are given by seq[block_start, block_end).      //
@@ -32,14 +32,19 @@ inline void SwapBlock(parlay::slice<uint32_t*, uint32_t*> block1,
 }
 
 inline void SwapBlockCpy(parlay::sequence<uint32_t>& seq, uint32_t block1_start, uint32_t block1_end,
-                      uint32_t block2_start, uint32_t block2_end) {
+                         uint32_t block2_start, uint32_t block2_end) {
+    uint32_t size = block1_end - block1_start;
 
-    size_t size = (block1_end - block1_start);
-    parlay::sequence<uint32_t> temp(size);
-
-    std::copy(seq.begin() + block1_start, seq.begin() + block1_end, temp.begin());
-    std::copy(seq.begin() + block2_start, seq.begin() + block2_end, seq.begin() + block1_start);
-    std::copy(temp.begin(), temp.end(), seq.begin() + block2_start);
+    if (size <= 2048) {
+        std::array<uint32_t, 2048> temp;
+        std::copy(seq.begin() + block1_start, seq.begin() + block1_end, temp.begin());
+        std::copy(seq.begin() + block2_start, seq.begin() + block2_end, seq.begin() + block1_start);
+        std::copy(temp.begin(), temp.begin() + size, seq.begin() + block2_start);
+  } else {
+        parlay::parallel_for(0, size, [&] (uint32_t i) {
+            std::swap(seq[block1_start + i], seq[block2_start + i]);
+    });
+  }
 }
 
 // Assumes size is divisible by 2 and less than or equal to 64
@@ -67,6 +72,7 @@ inline uint32_t ReadBlock(parlay::slice<uint32_t*, uint32_t*> block, uint32_t st
     return result;
 }
 
+
 inline uint32_t ReadBlock(parlay::slice<uint32_t*, uint32_t*> block) {
     uint32_t size = block.size();
     uint32_t result = 0;
@@ -91,6 +97,29 @@ inline void WriteBlock(parlay::sequence<uint32_t>& block, uint32_t start, uint32
         } 
     }
 }
+
+inline void WriteBlock2(parlay::sequence<uint32_t>& block, uint32_t start, uint32_t value) {
+    bool bit = value & 1U;
+    uint32_t& first = block[start];
+    uint32_t& second = block[start + 1];
+    if ((!bit && first > second) || (bit && first < second)) {
+        std::swap(first, second);
+    }
+}
+
+inline void WriteBlock64(parlay::sequence<uint32_t>& block, uint32_t start, uint32_t value) {
+    for (int i = 0; i < 32; ++i) {
+        bool bit = (value >> i) & 1U;
+
+        uint32_t& first = block[start + 2 * i];
+        uint32_t& second = block[start + 2 * i + 1];
+
+        if ((!bit && first > second) || (bit && first < second)) {
+            std::swap(first, second);
+        }
+    }
+}
+
 inline void WriteBlock(parlay::slice<uint32_t*, uint32_t*> block, uint32_t start, uint32_t end, uint32_t value) {
     uint32_t size = end - start;
     for (int i = 0; i < (size/2); i++) {
@@ -190,29 +219,69 @@ inline void merge(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*
     std::copy(temp.begin()+n, temp.end(), B.begin());
 }
 
+inline void merge2(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*, uint32_t*> B) {
+    constexpr size_t BLOCK_SIZE = 256;  // Tune based on cache line size
+    const size_t n = A.size();
+    
+    // Phase 1: Parallel merge using Parlay's built-in
+    auto merged = parlay::internal::merge(A, B, std::less<uint32_t>{});
+
+    // Phase 2: Parallel scatter with cache-friendly blocks
+    parlay::parallel_for(0, 2 * n / BLOCK_SIZE, [&](size_t block) {
+        const size_t start = block * BLOCK_SIZE;
+        const size_t end = std::min(start + BLOCK_SIZE, 2 * n);
+        
+        if (start < n) {
+            const size_t a_start = start;
+            const size_t a_end = std::min(end, n);
+            std::copy(merged.begin() + a_start, 
+                     merged.begin() + a_end, 
+                     A.begin() + a_start);
+        }
+        
+        if (end > n) {
+            const size_t b_start = std::max(start, n) - n;
+            const size_t b_end = end - n;
+            std::copy(merged.begin() + start + n, 
+                     merged.begin() + end + n, 
+                     B.begin() + b_start);
+        }
+    }, 1);  // Force 1 microtask per block for better locality
+}
+
 
 inline void PairwiseSort(parlay::slice<uint32_t*, uint32_t*> block) {
   uint32_t n = block.size();
   // If n is odd, the last element has no partner
   uint32_t limit = n - (n % 2);
+  uint32_t idx1;
+  uint32_t idx2;
 
   if (n <= 512) {
     for (int i = 0; i < limit/2; i++) {
-        uint32_t idx1 = 2*i;
-        uint32_t idx2 = 2*i + 1;
+        idx1 = 2*i;
+        idx2 = 2*i + 1;
         if (block[idx1] > block[idx2]) {
         std::swap(block[idx1], block[idx2]);
         }
     }
   } else {
-     // For each pair (2i, 2i+1), swap if out of order
-        parlay::parallel_for(0, limit/2, [&](uint32_t i){
-            uint32_t idx1 = 2*i;
-            uint32_t idx2 = 2*i + 1;
-            if (block[idx1] > block[idx2]) {
+    parlay::parallel_for(0, limit/2, [&] (uint32_t i) {
+        uint32_t idx1 = 2*i;
+        uint32_t idx2 = 2*i + 1;
+        if (block[idx1] > block[idx2]) {
             std::swap(block[idx1], block[idx2]);
-            }
-        });
+        }
+    });
   }
 }
 
+inline uint32_t ReadBlock64(parlay::sequence<uint32_t>& seq, uint32_t start) {
+    uint32_t result = 0;
+
+    for (int i = 0; i < 32; ++i) {
+        result |= (static_cast<uint32_t>(seq[start + 2 * i] > seq[start + 2 * i + 1]) << i);
+    }
+
+    return result;
+}

@@ -12,6 +12,8 @@
 #include "parlay/parallel.h"
 #include "parlay/primitives.h"
 #include "parlay/random.h"
+#include "parlay/utilities.h"
+#include "parlay/internal/binary_search.h"
 
 #define OPTIMIZE 0
 
@@ -23,27 +25,33 @@
 // Block j is encoded in S[j*b : j*b + b)
 
 // T is encoded in S[j*b : j*b + SEGMENT_SIZE)
+// #define T_R(j) ReadBlock64(seq, (j)*b)
 #define T_R(j) ReadBlock(seq, (j)*b, (j)*b + SEGMENT_SIZE)
 #define T_W(j,v) WriteBlock(seq, (j)*b, (j)*b + SEGMENT_SIZE, v)
 
 // inv is encoded in S[j*b + SEGMENT_SIZE : j*b + 2*SEGMENT_SIZE)
+// #define inv_R(j) ReadBlock64(seq, (j)*b + SEGMENT_SIZE)
 #define inv_R(j) ReadBlock(seq, (j)*b + SEGMENT_SIZE, (j)*b + 2*SEGMENT_SIZE)
 #define inv_W(j,v) WriteBlock(seq, (j)*b + SEGMENT_SIZE, (j)*b + 2*SEGMENT_SIZE, v)
 
 // R is encoded in S[j*b + 2*SEGMENT_SIZE : j*b + 3*SEGMENT_SIZE)
+// #define R_R(j) ReadBlock64(seq, (j)*b + 2*SEGMENT_SIZE)
 #define R_R(j) ReadBlock(seq, (j)*b + 2*SEGMENT_SIZE, (j)*b + 3*SEGMENT_SIZE)
 #define R_W(j,v) WriteBlock(seq, (j)*b + 2*SEGMENT_SIZE, (j)*b + 3*SEGMENT_SIZE, v)
 
-// C is encoded in S[j*b + 3*SEGMENT_SIZE :  j*b + 3*SEGMENT_SIZE + 2)
-#define C_R(j) ReadBlock(seq, (j)*b + 3*SEGMENT_SIZE, (j)*b + 3*SEGMENT_SIZE + 2)
+// C is encoded in S[j*b + 3*SEGMENT_SIZE :  j*b + 3*SEGMENT_SIZE)
+#define C_R(j) (static_cast<uint32_t>(seq[(j)*b + 3*SEGMENT_SIZE] > seq[(j)*b + 3*SEGMENT_SIZE + 1]))
+// #define C_R(j) ReadBlock(seq, (j)*b + 3*SEGMENT_SIZE, (j)*b + 3*SEGMENT_SIZE + 2)
 #define C_W(j,v) WriteBlock(seq, (j)*b + 3*SEGMENT_SIZE, (j)*b + 3*SEGMENT_SIZE + 2, v)
 
 // D is encoded in S[j*b + 3*SEGMENT_SIZE + 2 : j*b + 3*SEGMENT_SIZE + 4)
-#define D_R(j) ReadBlock(seq, (j)*b + 3*SEGMENT_SIZE + 2, (j)*b + 3*SEGMENT_SIZE + 4)
+#define D_R(j) (static_cast<uint32_t>(seq[(j)*b + 3*SEGMENT_SIZE + 2] > seq[(j)*b + 3*SEGMENT_SIZE + 3]))
+//#define D_R(j) ReadBlock(seq, (j)*b + 3*SEGMENT_SIZE + 2, (j)*b + 3*SEGMENT_SIZE + 4)
 #define D_W(j,v) WriteBlock(seq, (j)*b + 3*SEGMENT_SIZE + 2, (j)*b + 3*SEGMENT_SIZE + 4, v)
 
 // E is encoded in S[j*b + 3*SEGMENT_SIZE + 4 : j*b + 3*SEGMENT_SIZE + 6)
-#define E_R(j) ReadBlock(seq, (j)*b + 3*SEGMENT_SIZE + 4, (j)*b + 3*SEGMENT_SIZE + 6)
+#define E_R(j) (static_cast<uint32_t>(seq[(j)*b + 3*SEGMENT_SIZE + 4] > seq[(j)*b + 3*SEGMENT_SIZE + 5]))
+// #define E_R(j) ReadBlock(seq, (j)*b + 3*SEGMENT_SIZE + 4, (j)*b + 3*SEGMENT_SIZE + 6)
 #define E_W(j,v) WriteBlock(seq, (j)*b + 3*SEGMENT_SIZE + 4, (j)*b + 3*SEGMENT_SIZE + 6, v)
 
 // The "endpoint" of block j is the element at index (j*b + b -1).
@@ -196,7 +204,11 @@ void EndSort(parlay::sequence<uint32_t>& seq, uint32_t b, bool* flag) {
 inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint32_t b, bool base_case) { 
     uint32_t nb = (end - start) / b;
     uint32_t i = (start / b) + (nb / 2) - 1;
-    uint32_t j = std::min((start / b) + nb - 1, inv_R(i));
+    auto e = start/b + nb - 1;
+    auto inv = inv_R(i);
+    if (inv > e && !base_case) return;
+
+    uint32_t j = std::min(e, inv);
 
     // Save old inv
     uint32_t A_inv = inv_R(i);
@@ -215,11 +227,6 @@ inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t e
         PairwiseSort(A);
         PairwiseSort(B);
         merge(A, B);
-        // auto R = parlay::sequence<uint32_t>(A.size() + B.size());
-        // R = parlay::merge(A, B);
-        // std::move(R.begin(), R.begin() + A.size(), A.begin());
-        // std::move(R.begin() + A.size(), R.end(), B.begin());
-        // R.clear();
     }
 
     if (!base_case) {
@@ -300,6 +307,28 @@ bool CheckInversionPointers(parlay::sequence<uint32_t>& seq, uint32_t b) {
     return x;
 }
 
+bool CheckEndSorted(parlay::sequence<uint32_t>& seq, uint32_t b) {
+    bool x = true;
+    for (int i = 0; i < seq.size() / b - 1; i++) {
+        if (GET_ENDPOINT(i) > GET_ENDPOINT(i+1)) {
+            x = false;
+        }
+    }
+
+    return x;
+}
+
+bool CheckSorted(parlay::sequence<uint32_t>& seq) {
+    bool x = true;
+    for (int i = 0; i < seq.size() - 1; i++) {
+        if (seq[i] > seq[i+1]) {
+            x = false;
+        }
+    }
+
+    return x;
+}
+
 void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
     assert(seq.size()/2 % b == 0);
     assert(seq.size() > b);
@@ -313,12 +342,14 @@ void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
     SetUp(seq, b);
     auto end = std::chrono::high_resolution_clock().now();
     auto time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+    //assert(CheckInversionPointers(seq, b));
     std::cout << "Time for SetUp: " << time.count() << " \n";
     std::cout << "End Sorting...\n\n";
     start = std::chrono::high_resolution_clock().now();
     EndSort(seq, b, flag);
     end = std::chrono::high_resolution_clock().now();
     time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+    //assert(CheckEndSorted(seq, b));
     std::cout << "Time for EndSort: " << time.count() << " \n";
     std::cout << "Seq Sorting...\n\n";
     start = std::chrono::high_resolution_clock().now();
@@ -326,6 +357,7 @@ void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
     end = std::chrono::high_resolution_clock().now();
     time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
     std::cout << "Time for SeqSort: " << time.count() << " \n";
+    //assert(CheckSorted(seq));
 
     std::free(flag);
 }
