@@ -136,7 +136,7 @@ void driver(uint32_t n, uint32_t k) {
       auto B = testSequence.subseq(half, testSequence.size());
 
       auto start1 = std::chrono::high_resolution_clock::now();
-      Merge(testSequence, 2048);
+      Merge(testSequence, 320);
       auto end1 = std::chrono::high_resolution_clock::now();
       auto time1 = std::chrono::duration_cast<std::chrono::microseconds>(end1-start1);
 
@@ -167,13 +167,13 @@ void driver(uint32_t n, uint32_t k) {
 }
 
 int main() {
-    uint32_t size = 4194304;
-    driver(size, 1000);
+    uint32_t size = 1 << 20;
+    // driver(size, 5000000);
 
-    // parlay::sequence<uint32_t> testSequence = Gen2(size);
-    // auto half = testSequence.size() / 2;
-    // auto A = testSequence.subseq(0, half);
-    // auto B = testSequence.subseq(half, testSequence.size());
+    parlay::sequence<uint32_t> testSequence = Gen2(size);
+    auto half = testSequence.size() / 2;
+    auto A = testSequence.subseq(0, half);
+    auto B = testSequence.subseq(half, testSequence.size());
 
     // std::cout << "Testing...\n\n";
 
@@ -188,12 +188,12 @@ int main() {
     // std::cout << "Time taken by IN-PLACE Merge: "
     //      << time.count() << " microseconds" << std::endl;
 
-	  // // buffer_merge(A, B);
+	  buffer_merge(A, B);
     
 
     // start = std::chrono::high_resolution_clock::now();
 
-    // auto r = parlay::merge(A, B);
+    auto r = parlay::merge(A, B);
 
     // end = std::chrono::high_resolution_clock::now();
 
@@ -227,20 +227,20 @@ int main() {
     // }
 
 	
-    // // for (size_t i = 0; i < A.size(); i++) {
-    // //         if (A[i] != r[i]) {
-    // //         std::cout << "ERROR: Mismatch at index " << i 
-    // //                     << " => " << A[i] << " vs. " << r[i] << "\n";
-    // //         return 1;
-    // //         }
-    // //     }
-    // //     for (size_t i = 0; i < B.size(); i++) {
-    // //                 if (B[i] != r[A.size()+i]) {
-    // //                 std::cout << "ERROR: Mismatch at index " << i 
-    // //                             << " => " << B[A.size()+i] << " vs. " << r[i] << "\n";
-    // //                 return 1;
-    // //                 }
-    // //             }
+    for (size_t i = 0; i < A.size(); i++) {
+            if (A[i] != r[i]) {
+            std::cout << "ERROR: Mismatch at index " << i 
+                        << " => " << A[i] << " vs. " << r[i] << "\n";
+            return 1;
+            }
+        }
+        for (size_t i = 0; i < B.size(); i++) {
+                    if (B[i] != r[A.size()+i]) {
+                    std::cout << "ERROR: Mismatch at index " << i 
+                                << " => " << B[i] << " vs. " << r[A.size()+i] << "\n";
+                    return 1;
+                    }
+                }
     
     // //     std::cout << "SUCCESS: Buffer Merge result matches parlay::merge.\n";
     

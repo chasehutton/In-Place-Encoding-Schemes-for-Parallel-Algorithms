@@ -90,8 +90,8 @@ void buffer_merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) 
 
     buffer Buffer = buffer(
     							r,
-								parlay::make_slice(A.begin()-131*r, A.begin()+n-129*r),
-								parlay::make_slice(A.begin()-129*r, A.begin()+n-r),
+								parlay::make_slice(A.begin()+n-131*r, A.begin()+n-129*r),
+								parlay::make_slice(A.begin()+n-129*r, A.begin()+n-r),
 								64);
 	Buffer.initialize();
 
@@ -112,6 +112,14 @@ void buffer_merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) 
 	}
 
 	Buffer.restore();
+
+	for (int i = 0; i < g/2 * r - 1; i++) {
+		if (A[i+1] < A[i]) std::cout << "BASDAJKSD AN\n";
+	}
+
+	for (int i = g/2*r+1; i < g * r - 1; i++) {
+			if (B[i+1] < B[i]) std::cout << "BASDAJKSD AN\n";
+		}
 
 	Buffer.aux = parlay::make_slice(A.begin(), A.begin()+2*r);
 	Buffer.enc = parlay::make_slice(A.begin()+2*r, A.begin()+130*r),
