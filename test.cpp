@@ -175,6 +175,9 @@ int main() {
     auto A = testSequence.subseq(0, half);
     auto B = testSequence.subseq(half, testSequence.size());
 
+    auto X = testSequence.subseq(0, half);
+        auto Y = testSequence.subseq(half, testSequence.size());
+
     // std::cout << "Testing...\n\n";
 
     // auto start = std::chrono::high_resolution_clock::now();
@@ -193,7 +196,7 @@ int main() {
 
     // start = std::chrono::high_resolution_clock::now();
 
-    auto r = parlay::merge(A, B);
+    auto r = parlay::merge(X, Y);
 
     // end = std::chrono::high_resolution_clock::now();
 
