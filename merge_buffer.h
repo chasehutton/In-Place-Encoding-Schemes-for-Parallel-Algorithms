@@ -122,7 +122,7 @@ void buffer_merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) 
 		}
 
 	Buffer.aux = parlay::make_slice(A.begin(), A.begin()+2*r);
-	Buffer.enc = parlay::make_slice(A.begin()+2*r, A.begin()+130*r),
+	Buffer.enc = parlay::make_slice(A.begin()+2*r, A.begin()+130*r);
 
 	Buffer.initialize();
 
