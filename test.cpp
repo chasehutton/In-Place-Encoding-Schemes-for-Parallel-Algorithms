@@ -8,6 +8,7 @@
 #include <utility>
 #include <numeric>
 #include <functional>
+#include <fstream>
 
 
 #include "utils.h"
@@ -58,6 +59,21 @@ bool IsSorted(const parlay::sequence<uint32_t>& seq) {
     }
   }
   return true;
+}
+
+void SaveSequenceToFile(parlay::sequence<uint32_t>& seq, const std::string& filename) {
+    std::ofstream outFile(filename);
+    if (!outFile) {
+        std::cerr << "Error: Unable to open file " << filename << " for writing.\n";
+        return;
+    }
+    
+    outFile << "Failed Sequence:\n";
+    for (size_t i = 0; i < seq.size(); i++) {
+        outFile << seq[i] << (i % 10 == 9 ? "\n" : " ");
+    }
+    outFile.close();
+    std::cout << "Failed sequence written to " << filename << "\n";
 }
 
 
@@ -125,15 +141,17 @@ bool CheckEachHalfSorted(const parlay::sequence<uint32_t>& testSequence) {
 }
 
 void driver(uint32_t n, uint32_t k) {
-    std::vector<double> times1(k);
-    std::vector<double> times2(k);
-
+    parlay::sequence<uint32_t> times1(k);
+    parlay::sequence<uint32_t> times2(k);
+    int it = -1;
     
     for (int i = 0; i < k; i++) {
       parlay::sequence<uint32_t> testSequence = Gen2(n);
       auto half = testSequence.size() / 2;
-      auto A = testSequence.subseq(0, half);
-      auto B = testSequence.subseq(half, testSequence.size());
+      // auto A = testSequence.subseq(0, half);
+      // auto B = testSequence.subseq(half, testSequence.size());
+      auto A1 = testSequence.subseq(0, half);
+      auto B1 = testSequence.subseq(half, testSequence.size());
 
       auto start1 = std::chrono::high_resolution_clock::now();
       Merge(testSequence, 2048);
@@ -143,23 +161,33 @@ void driver(uint32_t n, uint32_t k) {
       times1.push_back(time1.count());
 
       auto start2 = std::chrono::high_resolution_clock::now();
-      auto R = parlay::merge(A, B);
+      auto R = parlay::merge(A1, B1);
       auto end2 = std::chrono::high_resolution_clock::now();
       auto time2 = std::chrono::duration_cast<std::chrono::microseconds>(end2-start2);
 
       times2.push_back(time2.count());
 
 
+    //   for (size_t i = 0; i < testSequence.size(); i++) {
+    //     if (testSequence[i] != R[i]) {
+    //       std::cout << "ERROR: Mismatch at index " << i 
+    //                 << " => " << testSequence[i] << " vs. " << R[i] << "\n";
+    //     }
+    // }
+
       if (!IsSorted(testSequence)) {
         std::cout << "\nIteration " << i << " is not sorted!\n";
+        if (it == -1) it = i;
+        if (i == it) SaveSequenceToFile(testSequence, "failed_sequence.txt");
       }
     }
 
-    double total_time1 = std::accumulate(times1.begin(), times1.end(), 0.0);
-    double avg_time1 = total_time1 / k;
+    auto t1 = parlay::reduce(times1);
+    auto t2 = parlay::reduce(times2);
 
-    double total_time2 = std::accumulate(times2.begin(), times2.end(), 0.0);
-    double avg_time2 = total_time2 / k;
+    double avg_time1 = t1 / k;
+
+    double avg_time2 = t2 / k;
 
     std::cout << "\n\nAvg Time In Microseconds for In-Place Merge: " << avg_time1 << "\n\n";
     std::cout << "\n\nAvg Time In Microseconds for Parlay Merge: " << avg_time2 << "\n\n";
@@ -168,7 +196,19 @@ void driver(uint32_t n, uint32_t k) {
 
 int main() {
     uint32_t size = 4194304;
-    driver(size, 1000);
+    // bool found = false;
+    // parlay::sequence<uint32_t> testSequence;
+    // while (!found) {
+    //   testSequence = Gen2(size);
+    //   if (testSequence[size/2 - 1] < 4194304 && testSequence[size/2 - 1]  > 4194300) {
+    //     found = true;
+    //   }
+    // }
+    // Merge(testSequence, 1024);
+    driver(size, 10);
+
+
+    //driver(size, 5);
 
     // parlay::sequence<uint32_t> testSequence = Gen2(size);
     // auto half = testSequence.size() / 2;

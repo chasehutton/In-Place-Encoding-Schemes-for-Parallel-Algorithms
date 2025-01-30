@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      
+      {
+        "name": "Launch out (Linux GDB)",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "/home/chutton6/In-Place-Encoding-Schemes-for-Parallel-Algorithms/out",   // your ELF binary
+        "args": [],
+        "cwd": "/home/chutton6/In-Place-Encoding-Schemes-for-Parallel-Algorithms/",
+        "externalConsole": false,
+        "MIMode": "gdb",
+        "miDebuggerPath": "/usr/bin/gdb"       // or remove if on PATH
+      }
+    ],
+
+    "logging": [ {
+      "trace": true,
+      "traceResponse": true,
+      "engineLogging": true
+      }
+    ]
+  }
+

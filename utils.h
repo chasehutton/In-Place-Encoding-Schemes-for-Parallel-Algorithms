@@ -47,6 +47,21 @@ inline void SwapBlockCpy(parlay::sequence<uint32_t>& seq, uint32_t block1_start,
   }
 }
 
+
+inline void SwapBlockCpy(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*, uint32_t*> B) {
+    uint32_t size = A.size();   
+    if (size <= 2048) {
+        std::array<uint32_t, 2048> temp;
+        std::copy(A.begin(), A.end(), temp.begin());
+        std::copy(B.begin(), B.end(), A.begin());
+        std::copy(temp.begin(), temp.begin() + size, B.begin());
+    } else {
+        parlay::parallel_for(0, size, [&] (uint32_t i) {
+            std::swap(A[i], B[i]);
+        });
+    }
+}
+
 // Assumes size is divisible by 2 and less than or equal to 64
 inline uint32_t ReadBlock(parlay::sequence<uint32_t>& block, uint32_t start, uint32_t end) {
     uint32_t size = end - start;
@@ -191,50 +206,87 @@ inline void BubbleSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t
     } 
 }
 
-// Simple Out-Of-Place Merge
-inline void merge(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*, uint32_t*> B) {
-    auto n = A.size();
-    parlay::sequence<uint32_t> temp(2 * n);
+inline void merge(parlay::slice<uint32_t*, uint32_t*> A,
+                  parlay::slice<uint32_t*, uint32_t*> B) {
+  // Both slices are assumed to be length n and already sorted
+  size_t n = A.size();
 
-    auto itA = A.begin();
-    auto itB = B.begin();
-    auto itTemp = temp.begin();
+  // Create a parlay::sequence to hold the 2n merged elements
+  parlay::sequence<uint32_t> temp(2 * n);
 
-    while (itA != A.end() && itB != B.end()) {
-        if (*itA <= *itB) {
-            *itTemp = *itA;
-            ++itA;
-        } else {
-            *itTemp = *itB;
-            ++itB;
-        }
-        ++itTemp;
+  size_t i = 0;  // index for A
+  size_t j = 0;  // index for B
+  size_t k = 0;  // index for temp
+
+  // Merge elements into temp, picking the smaller from A or B
+  while (i < n && j < n) {
+    if (A[i] <= B[j]) {
+      temp[k++] = A[i++];
+    } else {
+      temp[k++] = B[j++];
     }
+  }
+  // Copy any leftover elements from A
+  while (i < n) {
+    temp[k++] = A[i++];
+  }
+  // Copy any leftover elements from B
+  while (j < n) {
+    temp[k++] = B[j++];
+  }
 
-    std::copy(itA, A.end(), itTemp);
-    std::copy(itB, B.end(), itTemp);
-
-    std::copy(temp.begin(), temp.begin() + n, A.begin());
-    std::copy(temp.begin()+n, temp.end(), B.begin());
+  // The first n merged elements overwrite A
+  for (size_t idx = 0; idx < n; idx++) {
+    A[idx] = temp[idx];
+  }
+  // The next n merged elements overwrite B
+  for (size_t idx = 0; idx < n; idx++) {
+    B[idx] = temp[n + idx];
+  }
 }
+
+// // Simple Out-Of-Place Merge
+// inline void merge(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*, uint32_t*> B) {
+//     auto n = A.size();
+//     parlay::sequence<uint32_t> temp(2 * n);
+
+//     auto itA = A.begin();
+//     auto itB = B.begin();
+//     auto itTemp = temp.begin();
+
+//     while (itA != A.end() && itB != B.end()) {
+//         if (*itA <= *itB) {
+//             *itTemp = *itA;
+//             ++itA;
+//         } else {
+//             *itTemp = *itB;
+//             ++itB;
+//         }
+//         ++itTemp;
+//     }
+
+//     std::copy(itA, A.end(), itTemp);
+//     std::copy(itB, B.end(), itTemp);
+
+//     std::copy(temp.begin(), temp.begin() + n, A.begin());
+//     std::copy(temp.begin()+n, temp.end(), B.begin());
+// }
 
 inline void PairwiseSort(parlay::slice<uint32_t*, uint32_t*> block) {
   uint32_t n = block.size();
-  // If n is odd, the last element has no partner
-  uint32_t limit = n - (n % 2);
-  uint32_t idx1;
-  uint32_t idx2;
+  uint32_t idx1 = 0;
+  uint32_t idx2 = 0;
 
-  if (n <= 512) {
-    for (int i = 0; i < limit/2; i++) {
+  if (n <= 2048) {
+    for (int i = 0; i < n/2; i++) {
         idx1 = 2*i;
         idx2 = 2*i + 1;
         if (block[idx1] > block[idx2]) {
-        std::swap(block[idx1], block[idx2]);
+            std::swap(block[idx1], block[idx2]);
         }
     }
   } else {
-    parlay::parallel_for(0, limit/2, [&] (uint32_t i) {
+    parlay::parallel_for(0, n/2, [&] (uint32_t i) {
         uint32_t idx1 = 2*i;
         uint32_t idx2 = 2*i + 1;
         if (block[idx1] > block[idx2]) {

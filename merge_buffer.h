@@ -88,62 +88,88 @@ void buffer_merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) 
 	uint32_t g = 512;
     uint32_t r = n/g;
 
-    buffer Buffer = buffer(
-    							r,
-								parlay::make_slice(A.begin()-131*r, A.begin()+n-129*r),
-								parlay::make_slice(A.begin()-129*r, A.begin()+n-r),
-								64);
+    buffer Buffer = buffer(2*r,
+						   parlay::make_slice(A.begin()+n-131*r, A.begin()+n-129*r),
+						   parlay::make_slice(A.begin()+n-129*r, A.begin()+n-r),
+						   64);
 	Buffer.initialize();
 
-	for (int i = 0; i < g/2; i++) {
+	for (size_t i = 0; i < g/2; i++) {
 		auto C = parlay::make_slice(A.begin()+i*r, A.begin()+i*r+r);
 		auto D = parlay::make_slice(A.begin()+n-r, A.end());
 		auto E = parlay::make_slice(B.begin(), B.begin()+r);
 		auto F = parlay::make_slice(B.begin()+n-i*r-r, B.end()-i*r);
 
-		parlay::internal::merge_into<parlay::move_assign_tag>(D, E, Buffer.aux, std::less<>());
+		parlay::internal::merge_into<parlay::copy_assign_tag>(D, E, Buffer.aux, std::less<>());
 		distribute(Buffer.aux, D, E);
 		
-		parlay::internal::merge_into<parlay::move_assign_tag>(C, D, Buffer.aux, std::less<>());
+		parlay::internal::merge_into<parlay::copy_assign_tag>(C, D, Buffer.aux, std::less<>());
 		distribute(Buffer.aux, C, D);
 		
-		parlay::internal::merge_into<parlay::move_assign_tag>(E, F, Buffer.aux, std::less<>());
+		parlay::internal::merge_into<parlay::copy_assign_tag>(E, F, Buffer.aux, std::less<>());
 		distribute(Buffer.aux, E, F);
+
+		SwapBlockCpy(D, E);
 	}
 
 	Buffer.restore();
 
-	Buffer.aux = parlay::make_slice(A.begin(), A.begin()+2*r);
-	Buffer.enc = parlay::make_slice(A.begin()+2*r, A.begin()+130*r),
+	// for (int i = 0; i < g/2 * r - 1; i++) {
+	// 	if (A[i+1] < A[i]) std::cout << "BASDAJKSD AN\n";
+	// }
 
-	Buffer.initialize();
+	// for (int i = g/2*r+1; i < g * r - 1; i++) {
+	// 		if (B[i+1] < B[i]) std::cout << "BASDAJKSD AN\n";
+	// }
 
-	for (int i = g/2; i < g; i++) {
-		auto C = parlay::make_slice(A.begin()+i*r, A.begin()+i*r+r);
-		auto D = parlay::make_slice(A.begin()+n-r, A.end());
+	buffer Buffer1 = buffer(
+	    							2*r,
+									parlay::make_slice(A.begin(), A.begin()+2*r),
+									parlay::make_slice(A.begin()+2*r, A.begin()+130*r),
+									64);
+	Buffer1.initialize();
+
+	// Buffer.aux = parlay::make_slice(A.begin(), A.begin()+2*r);
+	// Buffer.enc = parlay::make_slice(A.begin()+2*r, A.begin()+130*r);
+
+	Buffer1.initialize();
+
+	for (size_t i = g/2; i < g; i++) {
+		auto C = parlay::make_slice(A.begin() + i*r, A.begin() + i*r + r);
+		auto D = parlay::make_slice(A.begin() + n - r, A.end());
 		auto E = parlay::make_slice(B.begin(), B.begin()+r);
-		auto F = parlay::make_slice(B.begin()+n-i*r-r, B.end()-i*r);
+		auto F = parlay::make_slice(B.begin() + n - i*r - r, B.end() - i*r);
 
-		parlay::internal::merge_into<parlay::move_assign_tag>(D, E, Buffer.aux, std::less<>());
-		distribute(Buffer.aux, D, E);
+		parlay::internal::merge_into<parlay::copy_assign_tag>(D, E, Buffer1.aux, std::less<>());
+		distribute(Buffer1.aux, D, E);
 		
-		parlay::internal::merge_into<parlay::move_assign_tag>(C, D, Buffer.aux, std::less<>());
-		distribute(Buffer.aux, C, D);
+		parlay::internal::merge_into<parlay::copy_assign_tag>(C, D, Buffer1.aux, std::less<>());
+		distribute(Buffer1.aux, C, D);
 		
-		parlay::internal::merge_into<parlay::move_assign_tag>(E, F, Buffer.aux, std::less<>());
-		distribute(Buffer.aux, E, F);
+		parlay::internal::merge_into<parlay::copy_assign_tag>(E, F, Buffer1.aux, std::less<>());
+		distribute(Buffer1.aux, E, F);
+
+		SwapBlockCpy(D, E);
 	}
+
+	// for (int i = g/2; i < (g-2)*r - 1; i++) {
+	// 		if (A[i+1] < A[i]) std::cout << "A Bad second stage\n";
+	// 	}
+	
+	// 	for (int i = 2*r; i < (g*r)/2 - 1; i++) {
+	// 			if (B[i+1] < B[i]) std::cout << "BASDAJKSD AN\n";
+	// 	}
+	
 
 	auto D = parlay::make_slice(A.begin()+n-r, A.end());
 	auto E = parlay::make_slice(B.begin(), B.begin()+r);
-	parlay::internal::merge_into<parlay::uninitialized_move_tag>(D, E, Buffer.aux, std::less<>());
-	distribute(Buffer.aux, D, E);
+	parlay::internal::merge_into<parlay::uninitialized_move_tag>(D, E, Buffer1.aux, std::less<>());
+	distribute(Buffer1.aux, D, E);
 
-	Buffer.restore();
+	Buffer1.restore();
 	
     auto end = std::chrono::high_resolution_clock().now();
     auto time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
     
     std::cout << "Time for Buffer Merge: " << time.count() << " \n";
 }
-
