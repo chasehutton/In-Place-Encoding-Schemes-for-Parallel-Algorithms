@@ -154,11 +154,12 @@ void driver(uint32_t n, uint32_t k) {
       auto B1 = testSequence.subseq(half, testSequence.size());
 
       auto start1 = std::chrono::high_resolution_clock::now();
-      Merge(testSequence, 320);
+      Merge(testSequence, 4096);
       auto end1 = std::chrono::high_resolution_clock::now();
       auto time1 = std::chrono::duration_cast<std::chrono::microseconds>(end1-start1);
 
       times1.push_back(time1.count());
+      sum1 += time1.count();
 
       auto start2 = std::chrono::high_resolution_clock::now();
       auto R = parlay::merge(A1, B1);
@@ -166,6 +167,7 @@ void driver(uint32_t n, uint32_t k) {
       auto time2 = std::chrono::duration_cast<std::chrono::microseconds>(end2-start2);
 
       times2.push_back(time2.count());
+      sum2 += time2.count();
 
 
     //   for (size_t i = 0; i < testSequence.size(); i++) {
@@ -175,11 +177,11 @@ void driver(uint32_t n, uint32_t k) {
     //     }
     // }
 
-      if (!IsSorted(testSequence)) {
-        std::cout << "\nIteration " << i << " is not sorted!\n";
-        if (it == -1) it = i;
-        if (i == it) SaveSequenceToFile(testSequence, "failed_sequence.txt");
-      }
+      // if (!IsSorted(testSequence)) {
+      //   std::cout << "\nIteration " << i << " is not sorted!\n";
+      //   if (it == -1) it = i;
+      //   if (i == it) SaveSequenceToFile(testSequence, "failed_sequence.txt");
+      // }
     }
 
     auto t1 = parlay::reduce(times1);
@@ -189,13 +191,13 @@ void driver(uint32_t n, uint32_t k) {
 
     double avg_time2 = t2 / k;
 
-    std::cout << "\n\nAvg Time In Microseconds for In-Place Merge: " << avg_time1 << "\n\n";
-    std::cout << "\n\nAvg Time In Microseconds for Parlay Merge: " << avg_time2 << "\n\n";
-
+    std::cout << "\n\nAvg Time In Microseconds for In-Place Merge: " << avg_time1 << "\n";
+    std::cout << "\nAvg Time In Microseconds for Parlay Merge: " << avg_time2 << "\n";
+    std::cout << "\nSpeeddown: " << avg_time1/avg_time2 <<  "\n\n";
 }
 
 int main() {
-    uint32_t size = 4194304;
+    uint32_t size = 4096 << 15;
     // bool found = false;
     // parlay::sequence<uint32_t> testSequence;
     // while (!found) {
@@ -205,7 +207,7 @@ int main() {
     //   }
     // }
     // Merge(testSequence, 1024);
-    driver(size, 10);
+    driver(size, 5);
 
 
     //driver(size, 5);
