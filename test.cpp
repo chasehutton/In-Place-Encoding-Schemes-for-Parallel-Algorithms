@@ -132,7 +132,7 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
 
 int main(int argc, char* argv[]) {
     uint32_t b = atoi(argv[1]);
-    uint32_t size = b * atoi(argv[2]);
+    uint32_t size = atoi(argv[2]);
     // auto A = parlay::make_slice(seq.begin(), seq.begin() + seq.size()/2);
     // auto B = parlay::make_slice(seq.begin() + seq.size()/2, seq.end());
 

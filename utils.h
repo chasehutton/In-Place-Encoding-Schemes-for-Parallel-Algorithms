@@ -51,7 +51,7 @@ inline void SwapBlockCpy(parlay::sequence<uint32_t>& seq, uint32_t block1_start,
 
 inline void SwapBlockCpy(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*, uint32_t*> B) {
     uint32_t size = A.size();   
-    if (size <= 1024) {
+    if (size <= 2048) {
         std::array<uint32_t, 2048> temp;
         std::copy(A.begin(), A.end(), temp.begin());
         std::copy(B.begin(), B.end(), A.begin());

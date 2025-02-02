@@ -310,8 +310,6 @@ inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t e
     auto B = parlay::make_slice(seq.begin() + j*b,
                                 seq.begin() + j*b + b);
 
-    assert(A.size() == B.size());
-
     if (b <= 128) {
        BubbleSort(A, B);  
     //    parlay::integer_sort_inplace(parlay::make_slice(seq.begin() + start, seq.begin() + end)); 
@@ -343,7 +341,7 @@ inline void Separate(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t e
 }
 
 void SeqSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint32_t b) {
-    assert(start % b == 0 && end % b == 0);
+    //assert(start % b == 0 && end % b == 0);
     uint32_t n = end - start;
     uint32_t nBlocks = n / b;   // # blocks in [start,end)
     uint32_t halfBlocks  = nBlocks / 2;
@@ -360,8 +358,6 @@ void SeqSort(parlay::sequence<uint32_t>& seq, uint32_t start, uint32_t end, uint
             return;
         }
     }
-    assert(!(n < b));
-
     Separate(seq, start, end, b, false);
 
     parlay::par_do( 
@@ -441,25 +437,25 @@ void Merge(parlay::sequence<uint32_t>& seq, uint32_t b) {
     bool* flag = (bool*) std::malloc(sizeof(bool));
     *flag = false;
     // std::cout << "Setting Up...\n\n";
-    // auto start = std::chrono::high_resolution_clock().now();
+    auto start = std::chrono::high_resolution_clock().now();
     SetUp(seq, b);
-    // auto end = std::chrono::high_resolution_clock().now();
-    // auto time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+    auto end = std::chrono::high_resolution_clock().now();
+    auto time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
     //assert(CheckInversionPointers(seq, b));
-    // std::cout << "Time for SetUp: " << time.count() << " \n";
+    std::cout << "Time for SetUp: " << time.count() << " \n";
     // std::cout << "End Sorting...\n\n";
-    // start = std::chrono::high_resolution_clock().now();
+    start = std::chrono::high_resolution_clock().now();
     EndSort(seq, b, flag);
-    // end = std::chrono::high_resolution_clock().now();
-    // time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+    end = std::chrono::high_resolution_clock().now();
+    time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
     // //assert(CheckEndSorted(seq, b));
-    // std::cout << "Time for EndSort: " << time.count() << " \n";
+    std::cout << "Time for EndSort: " << time.count() << " \n";
     // std::cout << "Seq Sorting...\n\n";
-    // start = std::chrono::high_resolution_clock().now();
+    start = std::chrono::high_resolution_clock().now();
     SeqSort(seq, 0, (uint32_t)seq.size(), b);
-    // end = std::chrono::high_resolution_clock().now();
-    // time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
-    // std::cout << "Time for SeqSort: " << time.count() << " \n";
+    end = std::chrono::high_resolution_clock().now();
+    time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+    std::cout << "Time for SeqSort: " << time.count() << " \n";
 
     // for (int i = 0; i < seq.size()/b; i++) {
     //     parlay::integer_sort_inplace(parlay::make_slice(seq.begin() + i*b, seq.begin() + (i+1)*b));
