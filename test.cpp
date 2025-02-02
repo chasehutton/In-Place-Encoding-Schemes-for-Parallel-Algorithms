@@ -77,69 +77,6 @@ void SaveSequenceToFile(parlay::sequence<uint32_t>& seq, const std::string& file
 }
 
 
-parlay::sequence<uint32_t> generateUniqueTwoSortedHalves(uint32_t size) {
-    if (size % 2 != 0) {
-        throw std::invalid_argument("Size must be even.");
-    }
-    size_t half = size / 2;
-
-    // Random number generator
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<uint32_t> dis(1, 100000000);
-
-    std::set<uint32_t> globalSet;
-    while (globalSet.size() < size) {
-        globalSet.insert(dis(gen));
-    }
-
-    parlay::sequence<uint32_t> allVals(globalSet.begin(), globalSet.end());
-    std::shuffle(allVals.begin(), allVals.end(), gen);
-
-    parlay::sequence<uint32_t> result(size);
-    std::copy(allVals.begin(), allVals.begin() + half, result.begin());
-    std::copy(allVals.begin() + half, allVals.end(),result.begin() + half);
-
-    std::sort(result.begin(),  result.begin() + half);
-    std::sort(result.begin() + half,  result.end());
-
-    return result;
-}
-
-bool CheckEachHalfSorted(const parlay::sequence<uint32_t>& testSequence) {
-  // Ensure testSequence has even length
-  if (testSequence.size() % 2 != 0) {
-    std::cerr << "CheckEachHalfSorted: sequence size is not even!\n";
-    return false;
-  }
-
-  size_t n = testSequence.size();
-  size_t half = n / 2;
-
-  // 1) Check the first half: [0..(half-1)]
-  for (size_t i = 1; i < half; i++) {
-    if (testSequence[i] < testSequence[i - 1]) {
-      std::cerr << "First half NOT sorted at index " << i
-                << " (value " << testSequence[i]
-                << " < " << testSequence[i - 1] << " at index " << (i - 1) << ")\n";
-      return false;
-    }
-  }
-
-  // 2) Check the second half: [half..(n-1)]
-  for (size_t i = half + 1; i < n; i++) {
-    if (testSequence[i] < testSequence[i - 1]) {
-      std::cerr << "Second half NOT sorted at index " << i
-                << " (value " << testSequence[i]
-                << " < " << testSequence[i - 1] << " at index " << (i - 1) << ")\n";
-      return false;
-    }
-  }
-
-  // If we reach here, both halves are internally sorted
-  return true;
-}
-
 void driver(uint32_t n, uint32_t k) {
     parlay::sequence<uint32_t> times1(k);
     parlay::sequence<uint32_t> times2(k);
@@ -159,7 +96,6 @@ void driver(uint32_t n, uint32_t k) {
       auto time1 = std::chrono::duration_cast<std::chrono::microseconds>(end1-start1);
 
       times1.push_back(time1.count());
-      sum1 += time1.count();
 
       auto start2 = std::chrono::high_resolution_clock::now();
       auto R = parlay::merge(A1, B1);
@@ -167,8 +103,6 @@ void driver(uint32_t n, uint32_t k) {
       auto time2 = std::chrono::duration_cast<std::chrono::microseconds>(end2-start2);
 
       times2.push_back(time2.count());
-      sum2 += time2.count();
-
 
     //   for (size_t i = 0; i < testSequence.size(); i++) {
     //     if (testSequence[i] != R[i]) {
