@@ -13,8 +13,8 @@
 
 #include "utils.h"
 #include "merge_random.h"
-#include "buffer.h"
-#include "merge_buffer.h"
+// #include "buffer.h"
+// #include "merge_buffer.h"
 
 
 #include "parlay/parallel.h"
@@ -46,38 +46,38 @@ auto Gen2 (uint64_t n) {
 }
 
 
-// This file contains GPT generated code for testing purposes
+// // This file contains GPT generated code for testing purposes
 
-bool IsSorted(const parlay::sequence<uint32_t>& seq) {
-  // A sequence with 0 or 1 elements is trivially sorted
-  if (seq.size() <= 1) return true;
+// bool IsSorted(const parlay::sequence<uint32_t>& seq) {
+//   // A sequence with 0 or 1 elements is trivially sorted
+//   if (seq.size() <= 1) return true;
 
-  // Check each adjacent pair
-  for (size_t i = 1; i < seq.size(); i++) {
-    if (seq[i] < seq[i - 1]) {
-      return false;  // Found a descending pair
-    }
-  }
-  return true;
-}
+//   // Check each adjacent pair
+//   for (size_t i = 1; i < seq.size(); i++) {
+//     if (seq[i] < seq[i - 1]) {
+//       return false;  // Found a descending pair
+//     }
+//   }
+//   return true;
+// }
 
-void SaveSequenceToFile(parlay::sequence<uint32_t>& seq, const std::string& filename) {
-    std::ofstream outFile(filename);
-    if (!outFile) {
-        std::cerr << "Error: Unable to open file " << filename << " for writing.\n";
-        return;
-    }
+// void SaveSequenceToFile(parlay::sequence<uint32_t>& seq, const std::string& filename) {
+//     std::ofstream outFile(filename);
+//     if (!outFile) {
+//         std::cerr << "Error: Unable to open file " << filename << " for writing.\n";
+//         return;
+//     }
     
-    outFile << "Failed Sequence:\n";
-    for (size_t i = 0; i < seq.size(); i++) {
-        outFile << seq[i] << (i % 10 == 9 ? "\n" : " ");
-    }
-    outFile.close();
-    std::cout << "Failed sequence written to " << filename << "\n";
-}
+//     outFile << "Failed Sequence:\n";
+//     for (size_t i = 0; i < seq.size(); i++) {
+//         outFile << seq[i] << (i % 10 == 9 ? "\n" : " ");
+//     }
+//     outFile.close();
+//     std::cout << "Failed sequence written to " << filename << "\n";
+// }
 
 
-void driver(uint32_t n, uint32_t k) {
+void driver(uint32_t n, uint32_t k, uint32_t b) {
     parlay::sequence<uint32_t> times1(k);
     parlay::sequence<uint32_t> times2(k);
     int it = -1;
@@ -91,7 +91,7 @@ void driver(uint32_t n, uint32_t k) {
       auto B1 = testSequence.subseq(half, testSequence.size());
 
       auto start1 = std::chrono::high_resolution_clock::now();
-      Merge(testSequence, 4096);
+      Merge(testSequence, b);
       auto end1 = std::chrono::high_resolution_clock::now();
       auto time1 = std::chrono::duration_cast<std::chrono::microseconds>(end1-start1);
 
@@ -130,8 +130,15 @@ void driver(uint32_t n, uint32_t k) {
     std::cout << "\nSpeeddown: " << avg_time1/avg_time2 <<  "\n\n";
 }
 
-int main() {
-    uint32_t size = 4096 << 15;
+int main(int argc, char* argv[]) {
+    uint32_t b = atoi(argv[1]);
+    uint32_t size = atoi(argv[2]);
+    // auto A = parlay::make_slice(seq.begin(), seq.begin() + seq.size()/2);
+    // auto B = parlay::make_slice(seq.begin() + seq.size()/2, seq.end());
+
+   
+    //auto R = parlay::merge(A,B);  
+    // Merge(seq, 2048);
     // bool found = false;
     // parlay::sequence<uint32_t> testSequence;
     // while (!found) {
@@ -141,7 +148,7 @@ int main() {
     //   }
     // }
     // Merge(testSequence, 1024);
-    driver(size, 5);
+    driver(size, 10, b);
 
 
     //driver(size, 5);
