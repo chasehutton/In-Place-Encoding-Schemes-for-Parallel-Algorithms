@@ -51,8 +51,8 @@ inline void SwapBlockCpy(parlay::sequence<uint32_t>& seq, uint32_t block1_start,
 
 inline void SwapBlockCpy(parlay::slice<uint32_t*, uint32_t*> A, parlay::slice<uint32_t*, uint32_t*> B) {
     uint32_t size = A.size();   
-    if (size <= 2048) {
-        std::array<uint32_t, 2048> temp;
+    if (size <= 8192) {
+        std::array<uint32_t, 8192> temp;
         std::copy(A.begin(), A.end(), temp.begin());
         std::copy(B.begin(), B.end(), A.begin());
         std::copy(temp.begin(), temp.begin() + size, B.begin());
@@ -213,7 +213,7 @@ inline void merge(parlay::slice<uint32_t*, uint32_t*> A,
   size_t n = A.size();
 
 
-  if (n <= 4096) {
+  if (n <= 8192) {
     parlay::sequence<uint32_t> temp(2 * n);
 
     size_t i = 0;  // index for A
@@ -290,7 +290,7 @@ inline void PairwiseSort(parlay::slice<uint32_t*, uint32_t*> block) {
   uint32_t idx1 = 0;
   uint32_t idx2 = 0;
 
-  if (n <= 2048) {
+  if (n <= 8192) {
     for (int i = 0; i < n/2; i++) {
         idx1 = 2*i;
         idx2 = 2*i + 1;
