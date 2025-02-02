@@ -5,7 +5,8 @@
 
 #include "parlay/sequence.h"
 #include "parlay/parallel.h"
-#include "parlay/internal/merge.h"
+#include "parlay/utilities.h"
+#include "parlay/primitives.h"
 
 ///////////////////////////////////////////////////////////
 // Blocks are given by seq[block_start, block_end).      //
@@ -211,38 +212,50 @@ inline void merge(parlay::slice<uint32_t*, uint32_t*> A,
   // Both slices are assumed to be length n and already sorted
   size_t n = A.size();
 
-  // Create a parlay::sequence to hold the 2n merged elements
-  parlay::sequence<uint32_t> temp(2 * n);
 
-  size_t i = 0;  // index for A
-  size_t j = 0;  // index for B
-  size_t k = 0;  // index for temp
+  if (n <= 4096) {
+    parlay::sequence<uint32_t> temp(2 * n);
 
-  // Merge elements into temp, picking the smaller from A or B
-  while (i < n && j < n) {
-    if (A[i] <= B[j]) {
-      temp[k++] = A[i++];
-    } else {
-      temp[k++] = B[j++];
+    size_t i = 0;  // index for A
+    size_t j = 0;  // index for B
+    size_t k = 0;  // index for temp
+
+    // Merge elements into temp, picking the smaller from A or B
+    while (i < n && j < n) {
+        if (A[i] <= B[j]) {
+        temp[k++] = A[i++];
+        } else {
+        temp[k++] = B[j++];
+        }
     }
-  }
-  // Copy any leftover elements from A
-  while (i < n) {
-    temp[k++] = A[i++];
-  }
-  // Copy any leftover elements from B
-  while (j < n) {
-    temp[k++] = B[j++];
-  }
+    // Copy any leftover elements from A
+    while (i < n) {
+        temp[k++] = A[i++];
+    }
+    // Copy any leftover elements from B
+    while (j < n) {
+        temp[k++] = B[j++];
+    }
 
-  // The first n merged elements overwrite A
-  for (size_t idx = 0; idx < n; idx++) {
-    A[idx] = temp[idx];
+    // The first n merged elements overwrite A
+    for (size_t idx = 0; idx < n; idx++) {
+        A[idx] = temp[idx];
+    }
+    // The next n merged elements overwrite B
+    for (size_t idx = 0; idx < n; idx++) {
+        B[idx] = temp[n + idx];
+    }
+  } else {
+    parlay::sequence<uint32_t> R(n*2);
+    parlay::internal::merge_into<parlay::copy_assign_tag>(A,B,parlay::make_slice(R),std::less<>());
+    parlay::parallel_for(0, n, [&] (uint32_t i) {
+        A[i] = R[i];
+        B[i] = R[n + i];
+    });
   }
-  // The next n merged elements overwrite B
-  for (size_t idx = 0; idx < n; idx++) {
-    B[idx] = temp[n + idx];
-  }
+                  
+  // Create a parlay::sequence to hold the 2n merged elements
+
 }
 
 // // Simple Out-Of-Place Merge
