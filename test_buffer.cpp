@@ -13,8 +13,8 @@
 
 #include "utils.h"
 #include "merge_random.h"
-// #include "buffer.h"
-// #include "merge_buffer.h"
+#include "buffer.h"
+#include "merge_buffer.h"
 
 
 #include "parlay/parallel.h"
@@ -46,38 +46,101 @@ auto Gen2 (uint64_t n) {
 }
 
 
-// // This file contains GPT generated code for testing purposes
+// This file contains GPT generated code for testing purposes
 
-// bool IsSorted(const parlay::sequence<uint32_t>& seq) {
-//   // A sequence with 0 or 1 elements is trivially sorted
-//   if (seq.size() <= 1) return true;
+bool IsSorted(const parlay::sequence<uint32_t>& seq) {
+  // A sequence with 0 or 1 elements is trivially sorted
+  if (seq.size() <= 1) return true;
 
-//   // Check each adjacent pair
-//   for (size_t i = 1; i < seq.size(); i++) {
-//     if (seq[i] < seq[i - 1]) {
-//       return false;  // Found a descending pair
-//     }
-//   }
-//   return true;
-// }
+  // Check each adjacent pair
+  for (size_t i = 1; i < seq.size(); i++) {
+    if (seq[i] < seq[i - 1]) {
+      return false;  // Found a descending pair
+    }
+  }
+  return true;
+}
 
-// void SaveSequenceToFile(parlay::sequence<uint32_t>& seq, const std::string& filename) {
-//     std::ofstream outFile(filename);
-//     if (!outFile) {
-//         std::cerr << "Error: Unable to open file " << filename << " for writing.\n";
-//         return;
-//     }
+void SaveSequenceToFile(parlay::sequence<uint32_t>& seq, const std::string& filename) {
+    std::ofstream outFile(filename);
+    if (!outFile) {
+        std::cerr << "Error: Unable to open file " << filename << " for writing.\n";
+        return;
+    }
     
-//     outFile << "Failed Sequence:\n";
-//     for (size_t i = 0; i < seq.size(); i++) {
-//         outFile << seq[i] << (i % 10 == 9 ? "\n" : " ");
-//     }
-//     outFile.close();
-//     std::cout << "Failed sequence written to " << filename << "\n";
-// }
+    outFile << "Failed Sequence:\n";
+    for (size_t i = 0; i < seq.size(); i++) {
+        outFile << seq[i] << (i % 10 == 9 ? "\n" : " ");
+    }
+    outFile.close();
+    std::cout << "Failed sequence written to " << filename << "\n";
+}
 
 
-void driver(uint32_t n, uint32_t k, uint32_t b) {
+parlay::sequence<uint32_t> generateUniqueTwoSortedHalves(uint32_t size) {
+    if (size % 2 != 0) {
+        throw std::invalid_argument("Size must be even.");
+    }
+    size_t half = size / 2;
+
+    // Random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<uint32_t> dis(1, 100000000);
+
+    std::set<uint32_t> globalSet;
+    while (globalSet.size() < size) {
+        globalSet.insert(dis(gen));
+    }
+
+    parlay::sequence<uint32_t> allVals(globalSet.begin(), globalSet.end());
+    std::shuffle(allVals.begin(), allVals.end(), gen);
+
+    parlay::sequence<uint32_t> result(size);
+    std::copy(allVals.begin(), allVals.begin() + half, result.begin());
+    std::copy(allVals.begin() + half, allVals.end(),result.begin() + half);
+
+    std::sort(result.begin(),  result.begin() + half);
+    std::sort(result.begin() + half,  result.end());
+
+    return result;
+}
+
+bool CheckEachHalfSorted(const parlay::sequence<uint32_t>& testSequence) {
+  // Ensure testSequence has even length
+  if (testSequence.size() % 2 != 0) {
+    std::cerr << "CheckEachHalfSorted: sequence size is not even!\n";
+    return false;
+  }
+
+  size_t n = testSequence.size();
+  size_t half = n / 2;
+
+  // 1) Check the first half: [0..(half-1)]
+  for (size_t i = 1; i < half; i++) {
+    if (testSequence[i] < testSequence[i - 1]) {
+      std::cerr << "First half NOT sorted at index " << i
+                << " (value " << testSequence[i]
+                << " < " << testSequence[i - 1] << " at index " << (i - 1) << ")\n";
+      return false;
+    }
+  }
+
+  // 2) Check the second half: [half..(n-1)]
+  for (size_t i = half + 1; i < n; i++) {
+    if (testSequence[i] < testSequence[i - 1]) {
+      std::cerr << "Second half NOT sorted at index " << i
+                << " (value " << testSequence[i]
+                << " < " << testSequence[i - 1] << " at index " << (i - 1) << ")\n";
+      return false;
+    }
+  }
+
+  // If we reach here, both halves are internally sorted
+  return true;
+}
+
+void driver(uint32_t n, uint32_t k) {
     parlay::sequence<uint32_t> times1(k);
     parlay::sequence<uint32_t> times2(k);
     int it = -1;
@@ -91,7 +154,7 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
       auto B1 = testSequence.subseq(half, testSequence.size());
 
       auto start1 = std::chrono::high_resolution_clock::now();
-      Merge(testSequence, b);
+      Merge(testSequence, 4096);
       auto end1 = std::chrono::high_resolution_clock::now();
       auto time1 = std::chrono::duration_cast<std::chrono::microseconds>(end1-start1);
 
@@ -103,6 +166,7 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
       auto time2 = std::chrono::duration_cast<std::chrono::microseconds>(end2-start2);
 
       times2.push_back(time2.count());
+
 
     //   for (size_t i = 0; i < testSequence.size(); i++) {
     //     if (testSequence[i] != R[i]) {
@@ -130,15 +194,8 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
     std::cout << "\nSpeeddown: " << avg_time1/avg_time2 <<  "\n\n";
 }
 
-int main(int argc, char* argv[]) {
-    uint32_t b = atoi(argv[1]);
-    uint32_t size = b * atoi(argv[2]);
-    // auto A = parlay::make_slice(seq.begin(), seq.begin() + seq.size()/2);
-    // auto B = parlay::make_slice(seq.begin() + seq.size()/2, seq.end());
-
-   
-    //auto R = parlay::merge(A,B);  
-    // Merge(seq, 2048);
+int main() {
+    uint32_t size = 4096 << 10;
     // bool found = false;
     // parlay::sequence<uint32_t> testSequence;
     // while (!found) {
@@ -148,18 +205,18 @@ int main(int argc, char* argv[]) {
     //   }
     // }
     // Merge(testSequence, 1024);
-    driver(size, 10, b);
+    // driver(size, 5);
 
 
     //driver(size, 5);
 
-//     parlay::sequence<uint32_t> testSequence = Gen2(size);
-//     auto half = testSequence.size() / 2;
-//     auto A = testSequence.subseq(0, half);
-//     auto B = testSequence.subseq(half, testSequence.size());
-// 
-//     auto X = testSequence.subseq(0, half);
-//         auto Y = testSequence.subseq(half, testSequence.size());
+    parlay::sequence<uint32_t> testSequence = Gen2(size);
+    auto half = testSequence.size() / 2;
+    auto A = testSequence.subseq(0, half);
+    auto B = testSequence.subseq(half, testSequence.size());
+
+    auto X = testSequence.subseq(0, half);
+    auto Y = testSequence.subseq(half, testSequence.size());
 
     // std::cout << "Testing...\n\n";
 
@@ -174,12 +231,12 @@ int main(int argc, char* argv[]) {
     // std::cout << "Time taken by IN-PLACE Merge: "
     //      << time.count() << " microseconds" << std::endl;
 
-	  // buffer_merge(A, B);
+	buffer_merge(A, B);
     
 
     // start = std::chrono::high_resolution_clock::now();
 
-    // auto r = parlay::merge(X, Y);
+    auto r = parlay::merge(X, Y);
 
     // end = std::chrono::high_resolution_clock::now();
 
@@ -213,22 +270,22 @@ int main(int argc, char* argv[]) {
     // }
 
 	
-    // for (size_t i = 0; i < A.size(); i++) {
-    //         if (A[i] != r[i]) {
-    //         std::cout << "ERROR: Mismatch at index " << i 
-    //                     << " => " << A[i] << " vs. " << r[i] << "\n";
-    //         return 1;
-    //         }
-    //     }
-    //     for (size_t i = 0; i < B.size(); i++) {
-    //                 if (B[i] != r[A.size()+i]) {
-    //                 std::cout << "ERROR: Mismatch at index " << i 
-    //                             << " => " << B[i] << " vs. " << r[A.size()+i] << "\n";
-    //                 return 1;
-    //                 }
-    //             }
+    for (size_t i = 0; i < A.size(); i++) {
+        if (A[i] != r[i]) {
+        	std::cout << "ERROR: Mismatch at index " << i 
+                    << " => " << A[i] << " vs. " << r[i] << "\n";
+       		return 1;
+        }
+    }
+    for (size_t i = 0; i < B.size(); i++) {
+        if (B[i] != r[A.size()+i]) {
+        	std::cout << "ERROR: Mismatch at index " << i 
+                    << " => " << B[i] << " vs. " << r[A.size()+i] << "\n";
+        	return 1;
+        }
+    }
     
-    // //     std::cout << "SUCCESS: Buffer Merge result matches parlay::merge.\n";
+    std::cout << "SUCCESS: Buffer Merge result matches parlay::merge.\n";
     
     // //Check if they are identical
     // for (size_t i = 0; i < testSequence.size(); i++) {
