@@ -21,10 +21,10 @@
 // #include "parlay/sequence.h"
 #include "parlay/primitives.h"
 
-auto Gen2 (uint64_t n) {
-    std::random_device rd;
-    uint64_t salt = rd();
-    auto seq = parlay::random_permutation(n, salt);
+void Gen2 (uint64_t n, parlay::sequence<unsigned int>& seq, parlay::sequence<uint32_t>& seq32) {
+    // std::random_device rd;
+    // uint64_t salt = rd();
+    // auto seq = parlay::random_permutation(n, salt);
     // auto A = parlay::make_slice(seq.begin(), seq.begin() + mid);
     // auto B = parlay::make_slice(seq.begin() + mid, seq.end());
 
@@ -39,10 +39,9 @@ auto Gen2 (uint64_t n) {
         [&] { parlay::integer_sort_inplace(parlay::make_slice(seq.begin() + mid, seq.end())); }
     );
 
-    parlay::sequence<uint32_t> seq32 = parlay::map(seq, [](size_t x) -> uint32_t {
-        return static_cast<uint32_t>(x);
-    });
-    return seq32;
+    parlay::parallel_for(0, seq.size(), [&] (uint32_t i) {seq32[i] = static_cast<uint32_t>(seq[i]);});
+
+    return;
 }
 
 
@@ -81,9 +80,16 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
     parlay::sequence<uint32_t> times1(k);
     parlay::sequence<uint32_t> times2(k);
     int it = -1;
+	parlay::sequence<uint32_t> testSequence(n);
+	std::random_device rd;
+    uint64_t salt = rd();
+	auto seq = parlay::random_permutation(n, salt);
     
     for (int i = 0; i < k; i++) {
-      parlay::sequence<uint32_t> testSequence = Gen2(n);
+      std::random_device rd;
+      uint64_t salt = rd();
+      seq = parlay::random_permutation(n, salt);
+      Gen2(n, seq, testSequence);
       auto half = testSequence.size() / 2;
       // auto A = testSequence.subseq(0, half);
       // auto B = testSequence.subseq(half, testSequence.size());
@@ -132,7 +138,8 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
 
 int main(int argc, char* argv[]) {
     uint32_t b = atoi(argv[1]);
-    uint32_t size = atoi(argv[2]);
+    uint32_t size = b*atoi(argv[2]);
+    uint32_t tests = atoi(argv[3]);
     // auto A = parlay::make_slice(seq.begin(), seq.begin() + seq.size()/2);
     // auto B = parlay::make_slice(seq.begin() + seq.size()/2, seq.end());
 
@@ -148,7 +155,7 @@ int main(int argc, char* argv[]) {
     //   }
     // }
     // Merge(testSequence, 1024);
-    driver(size, 10, b);
+    driver(size, tests, b);
 
 
     //driver(size, 5);
