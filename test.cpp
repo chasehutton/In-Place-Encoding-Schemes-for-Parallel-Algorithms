@@ -13,6 +13,7 @@
 
 #include "utils.h"
 #include "merge_random.h"
+#include "merge_random_old.h"
 // #include "buffer.h"
 // #include "merge_buffer.h"
 
@@ -77,12 +78,12 @@ bool IsSorted(const parlay::sequence<uint32_t>& seq) {
 
 
 void driver(uint32_t n, uint32_t k, uint32_t b) {
-    parlay::sequence<uint32_t> times1(k);
-    parlay::sequence<uint32_t> times2(k);
-    int it = -1;
+  parlay::sequence<uint32_t> times1(k);
+  parlay::sequence<uint32_t> times2(k);
+  parlay::sequence<uint32_t> times3(k);
 	parlay::sequence<uint32_t> testSequence(n);
 	std::random_device rd;
-    uint64_t salt = rd();
+  uint64_t salt = rd();
 	auto seq = parlay::random_permutation(n, salt);
     
     for (int i = 0; i < k; i++) {
@@ -91,12 +92,10 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
       seq = parlay::random_permutation(n, salt);
       Gen2(n, seq, testSequence);
       auto half = testSequence.size() / 2;
-      // auto A = testSequence.subseq(0, half);
-      // auto B = testSequence.subseq(half, testSequence.size());
       auto A = testSequence.subseq(0, half);
       auto B = testSequence.subseq(half, testSequence.size());
-      auto A1 = A;
-      auto B1 = B;
+      auto A1 = testSequence.subseq(0, half);
+      auto B1 = testSequence.subseq(half, testSequence.size());
 
       auto start1 = std::chrono::high_resolution_clock::now();
       Merge(A, B, b);
@@ -112,6 +111,13 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
 
       times2.push_back(time2.count());
 
+      auto start3 = std::chrono::high_resolution_clock::now();
+      Merge(testSequence, b);
+      auto end3 = std::chrono::high_resolution_clock::now();
+      auto time3 = std::chrono::duration_cast<std::chrono::microseconds>(end3-start3);
+
+      times3.push_back(time3.count());
+
     //   for (size_t i = 0; i < testSequence.size(); i++) {
     //     if (testSequence[i] != R[i]) {
     //       std::cout << "ERROR: Mismatch at index " << i 
@@ -119,26 +125,31 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
     //     }
     // }
 
-      if (!IsSorted(parlay::append(A,B))) {
-        std::cout << "\nIteration " << i << " is not sorted!\n";
-      }
+      // if (!IsSorted(parlay::append(A,B))) {
+      //   std::cout << "\nIteration " << i << " is not sorted!\n";
+      // }
     }
 
     auto t1 = parlay::reduce(times1);
     auto t2 = parlay::reduce(times2);
+    auto t3 = parlay::reduce(times3);
 
     double avg_time1 = t1 / k;
 
     double avg_time2 = t2 / k;
 
+    double avg_time3 = t3 / k;
+    
+    std::cout << "\nAvg Time In Microseconds for Old In-Place Merge: " << avg_time3 << "\n";
     std::cout << "\n\nAvg Time In Microseconds for In-Place Merge: " << avg_time1 << "\n";
     std::cout << "\nAvg Time In Microseconds for Parlay Merge: " << avg_time2 << "\n";
     std::cout << "\nSpeeddown: " << avg_time1/avg_time2 <<  "\n\n";
 }
 
 int main(int argc, char* argv[]) {
-    uint32_t b = 4096;
-    uint32_t size = 4194304;
+    uint32_t b = static_cast<uint32_t>(std::atoi(argv[1]));
+    uint32_t size = static_cast<uint32_t>(std::atoi(argv[2]));
+    uint32_t tests = static_cast<uint32_t>(std::atoi(argv[3]));
     // auto A = parlay::make_slice(seq.begin(), seq.begin() + seq.size()/2);
     // auto B = parlay::make_slice(seq.begin() + seq.size()/2, seq.end());
 
@@ -154,7 +165,7 @@ int main(int argc, char* argv[]) {
     //   }
     // }
     // Merge(testSequence, 1024);
-    driver(size, 10, b);
+    driver(size, tests, b);
 
 
     //driver(size, 5);

@@ -28,6 +28,22 @@ inline void SwapBlock(parlay::slice<uint32_t*, uint32_t*> block1,
     }
 }
 
+inline void SwapBlockCpy(parlay::sequence<uint32_t>& seq, uint32_t block1_start, uint32_t block1_end,
+                         uint32_t block2_start, uint32_t block2_end) {
+    uint32_t size = block1_end - block1_start;
+
+    if (size <= 2048) {
+        parlay::sequence<uint32_t> temp(size);
+        std::copy(seq.begin() + block1_start, seq.begin() + block1_end, temp.begin());
+        std::copy(seq.begin() + block2_start, seq.begin() + block2_end, seq.begin() + block1_start);
+        std::copy(temp.begin(), temp.begin() + size, seq.begin() + block2_start);
+  } else {
+        parlay::parallel_for(0, size, [&] (uint32_t i) {
+            std::swap(seq[block1_start + i], seq[block2_start + i]);
+    });
+  }
+}
+
 inline void SwapBlockCpy(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B,
                          uint32_t block1_start, uint32_t block1_end,
                          uint32_t block2_start, uint32_t block2_end) {
