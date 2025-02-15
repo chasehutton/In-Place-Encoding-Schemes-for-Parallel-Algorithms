@@ -48,18 +48,18 @@ auto Gen2 (uint64_t n) {
 
 // // This file contains GPT generated code for testing purposes
 
-// bool IsSorted(const parlay::sequence<uint32_t>& seq) {
-//   // A sequence with 0 or 1 elements is trivially sorted
-//   if (seq.size() <= 1) return true;
+bool IsSorted(const parlay::sequence<uint32_t>& seq) {
+  // A sequence with 0 or 1 elements is trivially sorted
+  if (seq.size() <= 1) return true;
 
-//   // Check each adjacent pair
-//   for (size_t i = 1; i < seq.size(); i++) {
-//     if (seq[i] < seq[i - 1]) {
-//       return false;  // Found a descending pair
-//     }
-//   }
-//   return true;
-// }
+  // Check each adjacent pair
+  for (size_t i = 1; i < seq.size(); i++) {
+    if (seq[i] < seq[i - 1]) {
+      return false;  // Found a descending pair
+    }
+  }
+  return true;
+}
 
 // void SaveSequenceToFile(parlay::sequence<uint32_t>& seq, const std::string& filename) {
 //     std::ofstream outFile(filename);
@@ -87,11 +87,13 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
       auto half = testSequence.size() / 2;
       // auto A = testSequence.subseq(0, half);
       // auto B = testSequence.subseq(half, testSequence.size());
-      auto A1 = testSequence.subseq(0, half);
-      auto B1 = testSequence.subseq(half, testSequence.size());
+      auto A = testSequence.subseq(0, half);
+      auto B = testSequence.subseq(half, testSequence.size());
+      auto A1 = A;
+      auto B1 = B;
 
       auto start1 = std::chrono::high_resolution_clock::now();
-      Merge(testSequence, b);
+      Merge(A, B, b);
       auto end1 = std::chrono::high_resolution_clock::now();
       auto time1 = std::chrono::duration_cast<std::chrono::microseconds>(end1-start1);
 
@@ -111,11 +113,9 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
     //     }
     // }
 
-      // if (!IsSorted(testSequence)) {
-      //   std::cout << "\nIteration " << i << " is not sorted!\n";
-      //   if (it == -1) it = i;
-      //   if (i == it) SaveSequenceToFile(testSequence, "failed_sequence.txt");
-      // }
+      if (!IsSorted(parlay::append(A,B))) {
+        std::cout << "\nIteration " << i << " is not sorted!\n";
+      }
     }
 
     auto t1 = parlay::reduce(times1);
@@ -131,8 +131,8 @@ void driver(uint32_t n, uint32_t k, uint32_t b) {
 }
 
 int main(int argc, char* argv[]) {
-    uint32_t b = atoi(argv[1]);
-    uint32_t size = atoi(argv[2]);
+    uint32_t b = 4096;
+    uint32_t size = 4194304;
     // auto A = parlay::make_slice(seq.begin(), seq.begin() + seq.size()/2);
     // auto B = parlay::make_slice(seq.begin() + seq.size()/2, seq.end());
 
