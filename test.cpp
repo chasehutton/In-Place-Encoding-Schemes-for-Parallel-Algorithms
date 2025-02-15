@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
     //   }
     // }
     // Merge(testSequence, 1024);
-    driver(size, tests, b);
+    driver(size, 10, b);
 
 
     //driver(size, 5);
