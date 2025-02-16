@@ -43,11 +43,17 @@ uint32_t bdiv2 = 0;
 #define CAS_R(j) (static_cast<uint32_t>(A[(j)*b + SEGMENT_SIZE_t5 + 4] > A[(j)*b + SEGMENT_SIZE_t5 + 5]))
 #define CAS_W(j,v) WriteBlock(A, (j)*b + SEGMENT_SIZE_t5 + 4, (j)*b + SEGMENT_SIZE_t5 + 6, v)
 
-#define TA2_R(j) ReadBlock(A, (j)*b + bdiv2, (j)*b + bdiv2+  SEGMENT_SIZE)
+#define TA2_R(j) ReadBlock(A, (j)*b + bdiv2, (j)*b + bdiv2 + SEGMENT_SIZE)
 #define TA2_W(j,v) WriteBlock(A, (j)*b + bdiv2, (j)*b + bdiv2 +  SEGMENT_SIZE, v)
 
-#define EA2_R(j) (static_cast<uint32_t>(A[(j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 4] > A[(j)*b + SEGMENT_SIZE_t3 + (bdiv2) + 5]))
-#define EA2_W(j,v) WriteBlock(A, (j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 4, (j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 6, v)
+#define CA2_R(j) (static_cast<uint32_t>(A[(j)*b + (bdiv2) + SEGMENT_SIZE] > A[(j)*b + SEGMENT_SIZE + (bdiv2) + 1]))
+#define CA2_W(j) WriteBlock(A, (j)*b + (bdiv2) + SEGMENT_SIZE, (j)*b + (bdiv2) + SEGMENT_SIZE + 2);
+
+#define DA2_R(j) (static_cast<uint32_t>(A[(j)*b + (bdiv2) + SEGMENT_SIZE + 2] > A[(j)*b + SEGMENT_SIZE + (bdiv2) + 3]))
+#define DA2_W(j) WriteBlock(A, (j)*b + (bdiv2) + SEGMENT_SIZE + 2, (j)*b + (bdiv2) + SEGMENT_SIZE + 4);
+
+#define EA2_R(j) (static_cast<uint32_t>(A[(j)*b + (bdiv2) + SEGMENT_SIZE + 4] > A[(j)*b + SEGMENT_SIZE + (bdiv2) + 5]))
+#define EA2_W(j,v) WriteBlock(A, (j)*b + (bdiv2) + SEGMENT_SIZE + 4, (j)*b + (bdiv2) + SEGMENT_SIZE + 6, v)
 
 #define TB_R(j) ReadBlock(B, (j)*b, (j)*b + SEGMENT_SIZE)
 #define TB_W(j,v) WriteBlock(B, (j)*b, (j)*b + SEGMENT_SIZE, v)
@@ -79,11 +85,26 @@ uint32_t bdiv2 = 0;
 #define CBS_R(j) (static_cast<uint32_t>(B[(j)*b + SEGMENT_SIZE_t5 + 4] > B[(j)*b + SEGMENT_SIZE_t5 + 5]))
 #define CBS_W(j,v) WriteBlock(B, (j)*b + SEGMENT_SIZE_t5 + 4, (j)*b + SEGMENT_SIZE_t5 + 6, v)
 
-#define TB2_R(j) ReadBlock(B, (j)*b + (bdiv2), (j)*b + (bdiv2) +  SEGMENT_SIZE)
-#define TB2_W(j,v) WriteBlock(B, (j)*b + (bdiv2), (j)*b + (bdiv2) +  SEGMENT_SIZE, v)
+#define TB2_R(j) ReadBlock(B, (j)*b + bdiv2, (j)*b + bdiv2 + SEGMENT_SIZE)
+#define TB2_W(j,v) WriteBlock(B, (j)*b + bdiv2, (j)*b + bdiv2 +  SEGMENT_SIZE, v)
 
-#define EB2_R(j) (static_cast<uint32_t>(B[(j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 4] > B[(j)*b + SEGMENT_SIZE_t3 + (bdiv2) + 5]))
-#define EB2_W(j,v) WriteBlock(B, (j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 4, (j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 6, v)
+#define CB2_R(j) (static_cast<uint32_t>(B[(j)*b + (bdiv2) + SEGMENT_SIZE] > B[(j)*b + SEGMENT_SIZE + (bdiv2) + 1]))
+#define CB2_W(j) WriteBlock(B, (j)*b + (bdiv2) + SEGMENT_SIZE, (j)*b + (bdiv2) + SEGMENT_SIZE + 2);
+
+#define DB2_R(j) (static_cast<uint32_t>(B[(j)*b + (bdiv2) + SEGMENT_SIZE + 2] > B[(j)*b + SEGMENT_SIZE + (bdiv2) + 3]))
+#define DB2_W(j) WriteBlock(B, (j)*b + (bdiv2) + SEGMENT_SIZE + 2, (j)*b + (bdiv2) + SEGMENT_SIZE + 4);
+
+#define EB2_R(j) (static_cast<uint32_t>(B[(j)*b + (bdiv2) + SEGMENT_SIZE + 4] > B[(j)*b + SEGMENT_SIZE + (bdiv2) + 5]))
+#define EB2_W(j,v) WriteBlock(B, (j)*b + (bdiv2) + SEGMENT_SIZE + 4, (j)*b + (bdiv2) + SEGMENT_SIZE + 6, v)
+
+// #define CBS_R(j) (static_cast<uint32_t>(B[(j)*b + SEGMENT_SIZE_t5 + 2] > B[(j)*b + SEGMENT_SIZE_t5 + 3]))
+// #define CBS_W(j,v) WriteBlock(B, (j)*b + SEGMENT_SIZE_t5 + 2, (j)*b + SEGMENT_SIZE_t5 + 4, v)
+
+// #define TB2_R(j) ReadBlock(B, (j)*b + (bdiv2), (j)*b + (bdiv2) +  SEGMENT_SIZE)
+// #define TB2_W(j,v) WriteBlock(B, (j)*b + (bdiv2), (j)*b + (bdiv2) +  SEGMENT_SIZE, v)
+
+// #define EB2_R(j) (static_cast<uint32_t>(B[(j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 4] > B[(j)*b + SEGMENT_SIZE_t3 + (bdiv2) + 5]))
+// #define EB2_W(j,v) WriteBlock(B, (j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 4, (j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 6, v)
 
 
 #define GET_ENDPOINT_A(j) A[(j)*b + (b - 1)]
@@ -185,6 +206,7 @@ void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
             EA_W(i, 0);
             if (TA_R(i) == i) DA_W(i, 1);
             else {
+                TA2_W(i, TA_R(i));
                 DA_W(i, 0);
                 done.store(false, std::memory_order_relaxed);
             } 
@@ -194,6 +216,7 @@ void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
             CB_W(k, x);
             if (TB_R(k) == i) DB_W(k, 1);
             else {
+                TB2_W(k, TB_R(k));
                 DB_W(k, 0);
                 done.store(false, std::memory_order_relaxed);
             }
@@ -239,7 +262,6 @@ void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
                             EA_W(i, 1);
                         }
                     }
-                    TA2_W(i, ti);
                     EA2_W(i, EA_R(i));
                 }
             } else {
@@ -256,7 +278,6 @@ void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
                             EB_W(k, 1);
                         }
                     }
-                    TB2_W(k, tk);
                     EB2_W(k, EB_R(k));
                 }
             }

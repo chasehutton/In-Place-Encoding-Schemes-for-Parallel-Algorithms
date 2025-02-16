@@ -22,6 +22,96 @@
 // #include "parlay/sequence.h"
 #include "parlay/primitives.h"
 
+void ParReverse(parlay::slice<uint32_t *, uint32_t *> A) {
+  auto Asize = A.size();
+  if (Asize <= 2048) {
+    for (int i = 0; i < std::floor(Asize / 2); i++) {
+      std::swap(A[i], A[Asize - i - 1]);
+    }
+  } else {
+    parlay::parallel_for(0, std::floor(Asize / 2), [&] (uint32_t i) {
+      std::swap(A[i], A[Asize - i - 1]);
+    });
+  }
+}
+
+void ParReverseSplit(parlay::slice<uint32_t *, uint32_t *> A, parlay::slice<uint32_t *, uint32_t *> B) {
+  auto Asize = A.size();
+  auto Bsize = B.size();
+  auto n = Asize + Bsize;
+  if (n <= 2048) {
+    for (int i = 0; i < std::floor((n) / 2); i++) {
+      if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
+      else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
+      else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
+    }
+  } else {
+    parlay::parallel_for(0, std::floor(n / 2), [&] (uint32_t i) {
+      if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
+      else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
+      else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
+    });
+  }
+}
+
+void StrongPIPMerge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t startA, uint32_t endA,
+                    uint32_t startB, uint32_t endB, uint32_t threshold) {
+  auto Asize = endA - startA;
+  auto Bsize = endB - startB;
+  if (Asize + Bsize <= threshold) {
+    merge(parlay::make_slice(A.begin() + startA, A.begin() + endA), parlay::make_slice(B.begin() + startB, B.begin() + endB));
+    return;
+  }
+
+  if (Asize == 0 || Bsize == 0) return;
+
+  if (Asize > Bsize) return StrongPIPMerge(B, A, startB, endB, startA, endA, threshold);
+
+  auto size = Asize + Bsize;
+  auto half = (size + 1) / 2;
+  auto left = startA;
+  auto right = endA;
+  uint32_t i;
+  uint32_t j;
+
+  while (left <= right) {
+    i = (left + right) / 2;
+    j = half - i + startB;
+
+    auto AleftMax  = (i == startA) ? std::numeric_limits<uint32_t>::min() : A[i - 1];
+    auto ArightMin = (i == endA) ? std::numeric_limits<uint32_t>::max() : A[i];
+
+    int BleftMax  = (j == startB) ? std::numeric_limits<uint32_t>::min() : B[j - 1];
+    int BrightMin = (j == endB) ? std::numeric_limits<uint32_t>::max() : B[j];
+
+    if (AleftMax <= BrightMin && BleftMax <= ArightMin) {
+      auto D1 = parlay::make_slice(A.begin() + startA + i, A.begin() + endA);
+      auto D2 = parlay::make_slice(B.begin() + startB, B.begin() + startB + j);
+      ParReverse(D1);
+      ParReverse(D2);
+      ParReverseSplit(D1,D2);
+      break;
+    } else if (AleftMax > BrightMin) {
+      right = i-1;
+    } else {
+      left = i+1;
+    }
+  }
+
+  parlay::par_do( 
+      [&] {
+      },
+      [&] {
+          
+      }
+  );
+
+
+
+
+
+}
+
 void Gen2 (uint64_t n, parlay::sequence<unsigned int>& seq, parlay::sequence<uint32_t>& seq32) {
     // std::random_device rd;
     // uint64_t salt = rd();
