@@ -68,6 +68,8 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "format": "cpp",
-        "semaphore": "cpp"
+        "semaphore": "cpp",
+        "cinttypes": "cpp",
+        "randPerm.C": "cpp"
     }
 }

@@ -7,108 +7,102 @@
 
 
 #include "utils.h"
+#include "block_size.h"
 #include "parlay/sequence.h"
-#include "parlay/internal/uninitialized_sequence.h"
 #include "parlay/parallel.h"
 #include "parlay/primitives.h"
 #include "parlay/random.h"
 #include "parlay/utilities.h"
-#include "parlay/internal/binary_search.h"
 
 #define SEGMENT_SIZE 64
+#define PADDING 16
 static uint32_t SEGMENT_SIZE_t2 = 2*SEGMENT_SIZE; 
 static uint32_t SEGMENT_SIZE_t3 = 3*SEGMENT_SIZE; 
 static uint32_t SEGMENT_SIZE_t4 = 4*SEGMENT_SIZE; 
 static uint32_t SEGMENT_SIZE_t5 = 5*SEGMENT_SIZE; 
-uint32_t bdiv2 = 0;
+static uint32_t PADDING_t2 = 2*PADDING;
+static uint32_t PADDING_t3 = 3*PADDING;
+static uint32_t PADDING_t4 = 4*PADDING;
+static uint32_t PADDING_t5 = 5*PADDING;
+uint32_t bdiv2;
 
-#define TA_R(j) ReadBlock(A, (j)*b, (j)*b + SEGMENT_SIZE)
-#define TA_W(j,v) WriteBlock(A, (j)*b, (j)*b + SEGMENT_SIZE, v)
+uint32_t inline get_endpoint(parlay::sequence<uint32_t>& S, uint32_t j) {
+    return S[j*b + b - 1];
+}
 
-#define invA_R(j) ReadBlock(A, (j)*b + SEGMENT_SIZE, (j)*b + SEGMENT_SIZE_t2)
-#define invA_W(j,v) WriteBlock(A, (j)*b + SEGMENT_SIZE, (j)*b + SEGMENT_SIZE_t2, v)
+inline void setup_end_sorted_position_buffer(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t v) {
+   uint32_t seq_index = j*b + bdiv2 + PADDING;
+   write_block_64(S, seq_index + 2, S[seq_index]);
+   S[seq_index] = v;
+}
 
-#define RA_R(j) ReadBlock(A, (j)*b + SEGMENT_SIZE_t2, (j)*b + SEGMENT_SIZE_t3)
-#define RA_W(j,v) WriteBlock(A, (j)*b + SEGMENT_SIZE_t2, (j)*b + SEGMENT_SIZE_t3, v)
+inline void restore_end_sorted_position_buffer(parlay::sequence<uint32_t>& S, uint32_t j) {
+    uint32_t seq_index = j*b + bdiv2 + PADDING;
+    S[seq_index] = read_block_64(S, seq_index + 2);
+}
 
-#define CA_R(j, k) (static_cast<uint32_t>(A[(j)*b + SEGMENT_SIZE_t3 + 2*(k)] > A[(j)*b + SEGMENT_SIZE_t3 + 2*(k) + 1]))
-#define CA_W(j,v) WriteBlock128(A, (j)*b + SEGMENT_SIZE_t3, (j)*b + SEGMENT_SIZE_t5, v)
+uint32_t inline read_end_sorted_position(parlay::sequence<uint32_t>& S, uint32_t j) {
+    uint32_t seq_index = b*j + bdiv2 + PADDING;
+    return read_block_64(S, seq_index);
+}
 
-#define DA_R(j) (static_cast<uint32_t>(A[(j)*b + SEGMENT_SIZE_t5] > A[(j)*b + SEGMENT_SIZE_t5 + 1]))
-#define DA_W(j,v) WriteBlock(A, (j)*b + SEGMENT_SIZE_t5, (j)*b + SEGMENT_SIZE_t5 + 2, v)
+void inline write_end_sorted_position(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
+    uint32_t seq_index = b*j + bdiv2 + PADDING;
+    write_block_64(S, seq_index, value);
+}
 
-#define EA_R(j) (static_cast<uint32_t>(A[(j)*b + SEGMENT_SIZE_t5 + 2] > A[(j)*b + SEGMENT_SIZE_t5 + 3]))
-#define EA_W(j,v) WriteBlock(A, (j)*b + SEGMENT_SIZE_t5 + 2, (j)*b + SEGMENT_SIZE_t5 + 4, v)
+uint32_t inline read_inversion_pointer(parlay::sequence<uint32_t>& S, uint32_t j) {
+    uint32_t seq_index = b*j;
+    return read_block_64(S, seq_index);
+}
 
-#define CAS_R(j) (static_cast<uint32_t>(A[(j)*b + SEGMENT_SIZE_t5 + 4] > A[(j)*b + SEGMENT_SIZE_t5 + 5]))
-#define CAS_W(j,v) WriteBlock(A, (j)*b + SEGMENT_SIZE_t5 + 4, (j)*b + SEGMENT_SIZE_t5 + 6, v)
+void inline write_inversion_pointer(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
+    uint32_t seq_index = b*j;
+    write_block_64(S, seq_index, value);
+}
 
-#define TA2_R(j) ReadBlock(A, (j)*b + bdiv2, (j)*b + bdiv2 + SEGMENT_SIZE)
-#define TA2_W(j,v) WriteBlock(A, (j)*b + bdiv2, (j)*b + bdiv2 +  SEGMENT_SIZE, v)
+uint32_t inline read_rank(parlay::sequence<uint32_t>& S, uint32_t j) {
+    uint32_t seq_index = b*j + SEGMENT_SIZE + PADDING;
+    return read_block_64(S, seq_index);
+}
 
-#define CA2_R(j) (static_cast<uint32_t>(A[(j)*b + (bdiv2) + SEGMENT_SIZE] > A[(j)*b + SEGMENT_SIZE + (bdiv2) + 1]))
-#define CA2_W(j) WriteBlock(A, (j)*b + (bdiv2) + SEGMENT_SIZE, (j)*b + (bdiv2) + SEGMENT_SIZE + 2);
+void inline write_rank(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
+    uint32_t seq_index = b*j + SEGMENT_SIZE + PADDING;
+    write_block_64(S, seq_index, value);
+}
 
-#define DA2_R(j) (static_cast<uint32_t>(A[(j)*b + (bdiv2) + SEGMENT_SIZE + 2] > A[(j)*b + SEGMENT_SIZE + (bdiv2) + 3]))
-#define DA2_W(j) WriteBlock(A, (j)*b + (bdiv2) + SEGMENT_SIZE + 2, (j)*b + (bdiv2) + SEGMENT_SIZE + 4);
+uint32_t inline read_coin_flip(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t k) {
+    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE + 2 + PADDING_t2 + 2*k;
+    return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]);
+}
 
-#define EA2_R(j) (static_cast<uint32_t>(A[(j)*b + (bdiv2) + SEGMENT_SIZE + 4] > A[(j)*b + SEGMENT_SIZE + (bdiv2) + 5]))
-#define EA2_W(j,v) WriteBlock(A, (j)*b + (bdiv2) + SEGMENT_SIZE + 4, (j)*b + (bdiv2) + SEGMENT_SIZE + 6, v)
-
-#define TB_R(j) ReadBlock(B, (j)*b, (j)*b + SEGMENT_SIZE)
-#define TB_W(j,v) WriteBlock(B, (j)*b, (j)*b + SEGMENT_SIZE, v)
-
-#define invB_R(j) ReadBlock(B, (j)*b + SEGMENT_SIZE, (j)*b + SEGMENT_SIZE_t2)
-#define invB_W(j,v) WriteBlock(B, (j)*b + SEGMENT_SIZE, (j)*b + SEGMENT_SIZE_t2, v)
-
-#define RB_R(j) ReadBlock(B, (j)*b + SEGMENT_SIZE_t2, (j)*b + SEGMENT_SIZE_t3)
-#define RB_W(j,v) WriteBlock(B, (j)*b + SEGMENT_SIZE_t2, (j)*b + SEGMENT_SIZE_t3, v)
-
-#define CB_R(j, k) (static_cast<uint32_t>(B[(j)*b + SEGMENT_SIZE_t3 + 2*(k)] > B[(j)*b + SEGMENT_SIZE_t3 + 2*(k) + 1]))
-#define CB_W(j,v) WriteBlock128(B, (j)*b + SEGMENT_SIZE_t3, (j)*b + SEGMENT_SIZE_t5, v)
-
-// #define CB_R(j) (static_cast<uint32_t>(B[(j)*b + SEGMENT_SIZE_t3] > B[(j)*b + SEGMENT_SIZE_t3 + 1]))
-// #define CB_W(j,v) WriteBlock(B, (j)*b + SEGMENT_SIZE_t3, (j)*b + SEGMENT_SIZE_t3 + 2, v)
-
-// #define DB_R(j) (static_cast<uint32_t>(B[(j)*b + SEGMENT_SIZE_t3 + 2] > B[(j)*b + SEGMENT_SIZE_t3 + 3]))
-// #define DB_W(j,v) WriteBlock(B, (j)*b + SEGMENT_SIZE_t3 + 2, (j)*b + SEGMENT_SIZE_t3 + 4, v)
-
-// #define EB_R(j) (static_cast<uint32_t>(B[(j)*b + SEGMENT_SIZE_t3 + 4] > B[(j)*b + SEGMENT_SIZE_t3 + 5]))
-// #define EB_W(j,v) WriteBlock(B, (j)*b + SEGMENT_SIZE_t3 + 4, (j)*b + SEGMENT_SIZE_t3 + 6, v)
-
-#define DB_R(j) (static_cast<uint32_t>(B[(j)*b + SEGMENT_SIZE_t5] > B[(j)*b + SEGMENT_SIZE_t5 + 1]))
-#define DB_W(j,v) WriteBlock(B, (j)*b + SEGMENT_SIZE_t5, (j)*b + SEGMENT_SIZE_t5 + 2, v)
-
-#define EB_R(j) (static_cast<uint32_t>(B[(j)*b + SEGMENT_SIZE_t5 + 2] > B[(j)*b + SEGMENT_SIZE_t5 + 3]))
-#define EB_W(j,v) WriteBlock(B, (j)*b + SEGMENT_SIZE_t5 + 2, (j)*b + SEGMENT_SIZE_t5 + 4, v)
-
-#define CBS_R(j) (static_cast<uint32_t>(B[(j)*b + SEGMENT_SIZE_t5 + 4] > B[(j)*b + SEGMENT_SIZE_t5 + 5]))
-#define CBS_W(j,v) WriteBlock(B, (j)*b + SEGMENT_SIZE_t5 + 4, (j)*b + SEGMENT_SIZE_t5 + 6, v)
-
-#define TB2_R(j) ReadBlock(B, (j)*b + bdiv2, (j)*b + bdiv2 + SEGMENT_SIZE)
-#define TB2_W(j,v) WriteBlock(B, (j)*b + bdiv2, (j)*b + bdiv2 +  SEGMENT_SIZE, v)
-
-#define CB2_R(j) (static_cast<uint32_t>(B[(j)*b + (bdiv2) + SEGMENT_SIZE] > B[(j)*b + SEGMENT_SIZE + (bdiv2) + 1]))
-#define CB2_W(j) WriteBlock(B, (j)*b + (bdiv2) + SEGMENT_SIZE, (j)*b + (bdiv2) + SEGMENT_SIZE + 2);
-
-#define DB2_R(j) (static_cast<uint32_t>(B[(j)*b + (bdiv2) + SEGMENT_SIZE + 2] > B[(j)*b + SEGMENT_SIZE + (bdiv2) + 3]))
-#define DB2_W(j) WriteBlock(B, (j)*b + (bdiv2) + SEGMENT_SIZE + 2, (j)*b + (bdiv2) + SEGMENT_SIZE + 4);
-
-#define EB2_R(j) (static_cast<uint32_t>(B[(j)*b + (bdiv2) + SEGMENT_SIZE + 4] > B[(j)*b + SEGMENT_SIZE + (bdiv2) + 5]))
-#define EB2_W(j,v) WriteBlock(B, (j)*b + (bdiv2) + SEGMENT_SIZE + 4, (j)*b + (bdiv2) + SEGMENT_SIZE + 6, v)
-
-// #define CBS_R(j) (static_cast<uint32_t>(B[(j)*b + SEGMENT_SIZE_t5 + 2] > B[(j)*b + SEGMENT_SIZE_t5 + 3]))
-// #define CBS_W(j,v) WriteBlock(B, (j)*b + SEGMENT_SIZE_t5 + 2, (j)*b + SEGMENT_SIZE_t5 + 4, v)
-
-// #define TB2_R(j) ReadBlock(B, (j)*b + (bdiv2), (j)*b + (bdiv2) +  SEGMENT_SIZE)
-// #define TB2_W(j,v) WriteBlock(B, (j)*b + (bdiv2), (j)*b + (bdiv2) +  SEGMENT_SIZE, v)
-
-// #define EB2_R(j) (static_cast<uint32_t>(B[(j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 4] > B[(j)*b + SEGMENT_SIZE_t3 + (bdiv2) + 5]))
-// #define EB2_W(j,v) WriteBlock(B, (j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 4, (j)*b + (bdiv2) + SEGMENT_SIZE_t3 + 6, v)
+void inline write_coin_flips(parlay::sequence<uint32_t>& S, uint32_t j, uint64_t r) {
+    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE + 2 + PADDING_t2;
+    write_block_64(S, seq_index, r);
+}
 
 
-#define GET_ENDPOINT_A(j) A[(j)*b + (b - 1)]
-#define GET_ENDPOINT_B(j) B[(j)*b + (b - 1)]
+uint32_t inline read_swap_flag(parlay::sequence<uint32_t>& S, uint32_t j) {
+    uint32_t seq_index = b*j + SEGMENT_SIZE_t2 + PADDING_t2;
+    return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]);
+}
+
+void inline write_swap_flag(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
+    uint32_t seq_index = b*j + SEGMENT_SIZE_t2 + PADDING_t2;
+    write_block_2(S, seq_index, value);
+}
+
+
+void inline mark_self(parlay::sequence<uint32_t>& S, uint32_t j) {
+    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE_t3 + 2 + PADDING_t3;
+    write_block_2(S, seq_index, 1);
+}
+
+uint32_t inline read_mark(parlay::sequence<uint32_t>& S, uint32_t j) {
+    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE_t3 + 2 + PADDING_t3;
+    return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]); 
+}
+
 
 static std::vector<uint32_t*> workspaces;
 
@@ -130,7 +124,7 @@ void FreeWorkspaces() {
 }
 
 
-void SetUp(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t b) {
+void SetUp(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
     uint32_t nbA = A.size()/b;
     uint32_t nbB = B.size()/b;
 
@@ -140,222 +134,196 @@ void SetUp(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_
         uint32_t high = in_A ? nbB : nbA;
         uint32_t k = i - nbA;
         uint32_t mid;
+        uint32_t e_a = in_A ? get_endpoint(A, i) : 0;
+        uint32_t e_b = !in_A ? get_endpoint(B, k) : 0;
 
         while (low < high) {
             mid = low + (high-low)/2;
-            if ((in_A && GET_ENDPOINT_A(i) > GET_ENDPOINT_B(mid)) 
-                 || (!in_A && GET_ENDPOINT_B(k) > GET_ENDPOINT_A(mid))) low = mid+1;
+            if ((in_A && e_a > get_endpoint(B, mid)) 
+                 || (!in_A && e_b > get_endpoint(A, mid))) low = mid+1;
             else high = mid;
         }
 
-        if (in_A) RA_W(i, low);
-        else RB_W(k, low);
+        if (in_A) write_rank(A, i, low);
+        else write_rank(B, k, low);
     });
 
     parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
         uint32_t k = i - nbA;
-        if (i < nbA) TA_W(i, RA_R(i) + i);
-        else TB_W(k, RB_R(k) + k);
+        if (i < nbA) setup_end_sorted_position_buffer(A, i, read_rank(A, i) + i);
+        // if (i < nbA) write_end_sorted_position(A, i, read_rank(A, i) + i);
+        else setup_end_sorted_position_buffer(B, k, read_rank(B, k) + k);
+        // else write_end_sorted_position(B, k, read_rank(B, k) + k);
     });
 
     parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
         if (i < nbA) {
-            uint32_t r = RA_R(i);
-            uint32_t v = (r >= nbB) ? nbA + nbB : TB_R(r);
-            invA_W(i, v);
+            uint32_t r = read_rank(A, i);
+            uint32_t v = (r >= nbB) ? nbA + nbB : B[r*b + bdiv2 + PADDING];
+            // uint32_t v = (r >= nbB) ? nbA + nbB : read_end_sorted_position(B, r);
+            write_inversion_pointer(A, i, v);
         } else {
             uint32_t k = i - nbA;
-            uint32_t r = RB_R(k);
-            uint32_t v = (r >= nbA) ? nbA + nbB : TA_R(r);
-            invB_W(k, v);
+            uint32_t r = read_rank(B, k);
+            uint32_t v = (r >= nbA) ? nbA + nbB : A[r*b + bdiv2 + PADDING];
+            // uint32_t v = (r >= nbA) ? nbA + nbB : read_end_sorted_position(A, r);
+            write_inversion_pointer(B, k, v);
         }
     });
 }
 
-inline bool Done(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t b, bool* flag) {
-    std::atomic<bool> done(true);
-    uint32_t nbA = A.size()/b;
-    uint32_t nbB = B.size()/b;
-    parlay::parallel_for(0, nbA + nbB, [&](uint32_t i) {
-        if (i < nbA && DA_R(i) == 0 || i >= nbA && DB_R(i - nbA) == 0) done.store(false, std::memory_order_relaxed);
-    });
-    *flag = done.load(std::memory_order_relaxed);
-    
-    //*flag = true;
-    // parlay::parallel_for(0, seq.size()/b, [&] (uint32_t i) {
-    //     if (D_R(i) == 0) *flag = false;
-    // });
-
-    return *flag;
-}
-
-void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t b, bool* flag) {
+void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t num_iterations) {
+    assert(num_iterations <= 32);
     uint32_t nbA = A.size()/b;
     uint32_t nbB = B.size()/b;
 
-    std::atomic<bool> done(true);
     std::random_device rd;
     std::size_t seed = (static_cast<std::size_t>(rd()) << 32) ^ rd();
     parlay::random_generator gen(seed);
-    std::uniform_int_distribution<uint64_t> dis(0, std::numeric_limits<uint64_t>::max());
+    std::uniform_int_distribution<uint32_t> dis(0, std::numeric_limits<uint32_t>::max());
     parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
         auto r = gen[i];
-        uint64_t x = dis(r);
+        uint32_t random_string = dis(r);
         if (i < nbA) {
-            CA_W(i, x);
-            EA_W(i, 0);
-            if (TA_R(i) == i) DA_W(i, 1);
-            else {
-                TA2_W(i, TA_R(i));
-                DA_W(i, 0);
-                done.store(false, std::memory_order_relaxed);
-            } 
+            write_coin_flips(A, i, random_string);
+            write_swap_flag(A, i, 0);
         } else {
             uint32_t k = i - nbA;
-            EB_W(k, 0);
-            CB_W(k, x);
-            if (TB_R(k) == i) DB_W(k, 1);
-            else {
-                TB2_W(k, TB_R(k));
-                DB_W(k, 0);
-                done.store(false, std::memory_order_relaxed);
+            write_coin_flips(B, k, random_string);
+            write_swap_flag(B, k, 0);
+        }
+    });
+
+    for (int it = 0; it < num_iterations; it++) {
+        parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
+            if (i < nbA) {
+                auto ti = A[i*b + bdiv2 + PADDING];
+                if (ti != i) {
+                    if (read_coin_flip(A, i, it) == 1) {
+                        auto tc = ti < nbA ? read_coin_flip(A, ti, it) : read_coin_flip(B, ti - nbA, it);
+                        if (tc == 0) {
+                            write_swap_flag(A, i, 1);
+                            write_rank(A, i, i);
+                            auto& D = ti < nbA ? A : B;
+                            ti -= (ti < nbA ? 0 : nbA);
+                            swap_block_cpy_half(A, D, i*b, i*b + bdiv2, ti*b, ti*b + bdiv2);
+                        }
+                    }
+                }
+            } else {
+                uint32_t k = i - nbA;
+                auto tk = B[k*b + bdiv2 + PADDING];
+                if (tk != i) {
+                    if (read_coin_flip(B, k, it) == 1) {
+                        auto tc = tk < nbA ? read_coin_flip(A, tk, it) : read_coin_flip(B, tk - nbA, it);
+                        if (tc == 0) {
+                            write_swap_flag(B, k, 1);
+                            write_rank(B, k, i);
+                            auto& D = tk < nbA ? A : B;
+                            tk -= (tk < nbA ? 0 : nbA);
+                            swap_block_cpy_half(B, D, k*b, k*b + bdiv2, tk*b, tk*b + bdiv2);
+                        }
+                    }
+                }
+            }
+        });
+
+        parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
+            if (i < nbA) {
+                if (read_swap_flag(A, i) == 1) {
+                    write_swap_flag(A, i, 0);
+                    auto t = read_rank(A, i);
+                    auto& D = t < nbA ? A : B;
+                    t -= (t < nbA ? 0 : nbA); 
+                    swap_block_cpy_half(A, D, i*b + bdiv2, i*b + b, t*b + bdiv2, t*b + b);
+                }
+
+            } else {
+                uint32_t k = i - nbA;
+                if (read_swap_flag(B, k) == 1) {
+                    write_swap_flag(B, k, 0);
+                    auto t = read_rank(B, k);
+                    auto& D = t < nbA ? A : B;
+                    t -= (t < nbA ? 0 : nbA); 
+                    swap_block_cpy_half(B, D, k*b + bdiv2, k*b + b, t*b + bdiv2, t*b + b);
+                }
+            }
+        });
+    }
+
+    parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
+        if (i < nbA) {
+            auto next = A[i*b + bdiv2 + PADDING];
+            while (next != i) {
+                if (next < i) {
+                    mark_self(A, i);
+                    break;
+                }
+                next = next < nbA ? A[next*b + bdiv2 + PADDING] : B[(next - nbA)*b + bdiv2 + PADDING];
+            }
+        } else {
+            uint32_t k = i - nbA;
+            auto next = B[k*b + bdiv2 + PADDING];
+            while (next != i) {
+                if (next < i) {
+                    mark_self(B, k);
+                    break;
+                }
+                next = next < nbA ? A[next*b + bdiv2 + PADDING] : B[(next - nbA)*b + bdiv2 + PADDING];
             }
         }
     });
 
-    int itcount = 0;
-    while (!done.load(std::memory_order_relaxed)) {
-        done.store(true, std::memory_order_relaxed);
-        if (itcount >= 64) {
-            parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
-                if (i < nbA) {
-                    if (DA_R(i) == 0) {
-                        auto r = parlay::random(131542391u 
-                                                + itcount * 0x9e3779b97f4a7c15ULL 
-                                                + i);
-                        uint8_t bit = static_cast<uint8_t>(r.ith_rand(0) & 1ULL);
-                        CAS_W(i, bit);
-                    }
-                } else {
-                    uint32_t k = i - nbA;
-                    if (DB_R(k) == 0) {
-                        auto r = parlay::random(131542391u 
-                                                + itcount * 0x9e3779b97f4a7c15ULL 
-                                                + i);
-                        uint8_t bit = static_cast<uint8_t>(r.ith_rand(0) & 1ULL);
-                        CBS_W(k, bit);
-                    }
+    parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
+        if (i < nbA) {
+            auto t = A[i*b + bdiv2 + PADDING];
+            if (t != i && read_mark(A, i) == 0) {
+                while (t != i) {
+                    uint32_t k1 = t < nbA ? t : t - nbA;
+                    auto& D = t < nbA ? A : B;
+                    swap_block_cpy(A, D, i*b, i*b + b, k1*b, k1*b + b);
+                    t = A[i*b + bdiv2 + PADDING];
                 }
-            });
+            }
+        } else {
+            uint32_t k = i - nbA;
+            auto t = B[k*b + bdiv2 + PADDING];
+            if (t != i && read_mark(B, k) == 0) {
+                while (t != i) {
+                    uint32_t k1 = t < nbA ? t : t - nbA;
+                    auto& D = t < nbA ? A : B;
+                    swap_block_cpy(B, D, k*b, k*b + b, k1*b, k1*b + b);
+                    t = B[k*b + bdiv2 + PADDING];
+                }
+            }
         }
+    });
 
-        parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
-            if (i < nbA) {
-                if (DA_R(i) == 0) { 
-                    done.store(false, std::memory_order_relaxed);
-                    auto ti = TA_R(i);
-                    auto ic = (itcount < 64) ? CA_R(i, itcount) : CAS_R(i);
-                    //auto ic = CA_R(i, itcount);
-                    if (ic == 1) {
-                        uint8_t tc = ti < nbA ? ( itcount < 64 ? CA_R(ti, itcount) : CAS_R(ti)) : ( itcount < 64 ? CB_R(ti - nbA, itcount) : CBS_R(ti - nbA));
-                        if (tc == 0) {
-                            EA_W(i, 1);
-                        }
-                    }
-                    EA2_W(i, EA_R(i));
-                }
-            } else {
-                uint32_t k = i - nbA;
-                if (DB_R(k) == 0) {
-                    done.store(false, std::memory_order_relaxed);
-                    auto tk = TB_R(k);
-                    // auto ic = (itcount < 64) ? CB_R(k, itcount) : CBS_R(k);
-                    auto ic = (itcount < 64) ? CB_R(k, itcount) : CBS_R(k);
-                    if (ic == 1) {
-                        uint8_t tc = tk < nbA ? ( itcount < 64 ? CA_R(tk, itcount) : CAS_R(tk)) : ( itcount < 64 ? CB_R(tk - nbA, itcount) : CBS_R(tk - nbA));
-                        //uint8_t tc = tk < nbA ? CA_R(tk, itcount) : CB_R(tk - nbA, itcount);
-                        if (tc == 0) {
-                            EB_W(k, 1);
-                        }
-                    }
-                    EB2_W(k, EB_R(k));
-                }
-            }
-        });
+    parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
+        if (i < nbA) {
+            restore_end_sorted_position_buffer(A, i);
+        } else {
+            uint32_t k = i - nbA;
+            restore_end_sorted_position_buffer(B, k);
+        }
+    });
 
-        parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
-            if (i < nbA) {
-                if (EA2_R(i) == 1) {
-                    DA_W(i, 1);
-                    RA_W(i, i);
-                    auto t = TA2_R(i);
-                    uint32_t k1 = (t < nbA) ? t : t - nbA;
-                    auto& D = (t < nbA) ? A : B;
-                    SwapBlockCpy(A, D, i*b, i*b + bdiv2, k1*b, k1*b + bdiv2);
-                }
-            } else {
-                uint32_t k = i - nbA;
-                if (EB2_R(k) == 1) {
-                    DB_W(k, 1);
-                    RB_W(k, i);
-                    auto t = TB2_R(k);
-                    uint32_t k1 = (t < nbA) ? t : t - nbA;
-                    auto& D = (t < nbA) ? A : B;
-                    SwapBlockCpy(B, D, k*b, k*b + bdiv2, k1*b, k1*b + bdiv2);
-                }
-            }
-        });
-
-        parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
-            if (i < nbA) {
-                if (EA_R(i) == 1) {
-                    EA_W(i, 0);
-                    auto t = RA_R(i);
-                    if (t < nbA) {
-                        if (TA_R(t) == t) DA_W(t, 1);
-                    } else {
-                        if (TB_R(t - nbA) == t) DB_W(t - nbA, 1);
-                    }
-                    uint32_t k1 = (t < nbA) ? t : t - nbA;
-                    auto& D = (t < nbA) ? A : B;
-                    SwapBlockCpy(A, D, i*b + bdiv2, i*b + b, k1*b + bdiv2, k1*b + b);
-                }
-            } else {
-                uint32_t k = i - nbA;
-                if (EB_R(k) == 1) {
-                    EB_W(k, 0);
-                    auto t = RB_R(k);
-                    if (t < nbA) {
-                        if (TA_R(t) == t) DA_W(t, 1);
-                    } else {
-                        if (TB_R(t - nbA) == t) DB_W(t - nbA, 1);
-                    }
-                    uint32_t k1 = (t < nbA) ? t : t - nbA;
-                    auto& D = (t < nbA) ? A : B;
-                    SwapBlockCpy(B, D, k*b + bdiv2, k*b + b, k1*b + bdiv2, k1*b + b);
-                }
-            }
-     
-        });
-        itcount++;
-    }
 }
 
-// Assumes nb >= 2
-inline void Separate(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t start, uint32_t end, uint32_t b, bool base_case) { 
+inline void Separate(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t start, uint32_t end, bool base_case) { 
     uint32_t nBlocks = (end - start) / b;
     uint32_t nbA = A.size() / b;
     uint32_t i = (start / b) + (nBlocks / 2) - 1;
     uint32_t e = start/b + nBlocks - 1;
     uint32_t Asize = A.size();
     uint32_t i_index = i*b;
-    uint32_t i_inv = i_index < Asize ? invA_R(i) : invB_R(i - nbA);
+    uint32_t i_inv = i_index < Asize ? read_inversion_pointer(A, i) : read_inversion_pointer(B, i - nbA);
     if (i_inv > e && !base_case) return;
     uint32_t j = std::min(i_inv, e);
     uint32_t j_index = j*b;
 
     uint32_t inv1 = i_inv;
-    uint32_t inv2 = j_index < Asize ? invA_R(j) : invB_R(j - nbA);
+    uint32_t inv2 = j_index < Asize ? read_inversion_pointer(A, j) : read_inversion_pointer(B, j - nbA);
     auto& D = i_index < Asize ? A : B;
     auto seq_index = i_index < Asize ? i_index : i_index - Asize;
     auto D1 = parlay::make_slice(D.begin() + seq_index, D.begin() + seq_index + b);
@@ -363,62 +331,61 @@ inline void Separate(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& 
     seq_index = j_index < Asize ? j_index : j_index - Asize;
     auto D2 = parlay::make_slice(D0.begin() + seq_index, D0.begin() + seq_index + b);
 
-    if (b <= 128) {
-        BubbleSort(D1, D2);  
-    } else {
-        PairwiseSort(D1);
-        PairwiseSort(D2);
-        merge(D1, D2);
-    }
+   
+    pairwise_sort(D1);
+    pairwise_sort(D2);
+    merge(D1, D2);
+  
 
     if (!base_case) {
-        if (i_index < Asize) invA_W(i, inv1);
-        else invB_W(i - nbA, inv1);
+        if (i_index < Asize) write_inversion_pointer(A, i, inv1);
+        else write_inversion_pointer(B, i - nbA, inv1);
 
-        if (j_index < Asize) invA_W(j, inv2);
-        else invB_W(j - nbA, inv2);
+        if (j_index < Asize) write_inversion_pointer(A, j, inv2);
+        else write_inversion_pointer(B, j - nbA, inv2);
     }
 }
 
-void SeqSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t start, uint32_t end, uint32_t b) {
+void SeqSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t start, uint32_t end) {
     uint32_t n = end - start;
     uint32_t nBlocks = n / b;   
     uint32_t halfBlocks  = nBlocks / 2;
     uint32_t mid = start + (halfBlocks * b); 
 
     if (n == 2*b) {
-        Separate(A, B, start, end, b, true);
+        Separate(A, B, start, end, true);
         return;
     } else if (n == b) {
         uint32_t Asize = A.size();
         auto& D = end < Asize ? A : B;
         auto x = end < Asize ? 0 : Asize;
-        PairwiseSort(parlay::make_slice(D.begin() + start - x, D.begin() + end - x));
+        pairwise_sort(parlay::make_slice(D.begin() + start - x, D.begin() + end - x));
         return;
     }
     
-    Separate(A, B, start, end, b, false);
+    Separate(A, B, start, end, false);
 
     parlay::par_do( 
         [&] {
-            SeqSort(A, B, start, mid, b);
+            SeqSort(A, B, start, mid);
         },
         [&] {
-            SeqSort(A, B, mid, end, b);
+            SeqSort(A, B, mid, end);
         }
     );
 }
 
-bool CheckInversionPointers(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t b) {
+
+bool CheckInversionPointers(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
     uint32_t nbA = A.size()/b;
     uint32_t nbB = B.size()/b;
 
     for (int i = 0; i < nbA; i++) {
-        auto e_i = GET_ENDPOINT_A(i);
-        auto inv_i = RA_R(i);
+        auto e_i = get_endpoint(A, i);
+        auto inv_i = read_rank(A, i);
 
         for (int j = 0; j < nbB; j++) {
-            auto e_j = GET_ENDPOINT_B(j);
+            auto e_j = get_endpoint(B, j);
             if (j < inv_i) {
                 if (e_i < e_j) return false;
                 
@@ -429,11 +396,11 @@ bool CheckInversionPointers(parlay::sequence<uint32_t>& A, parlay::sequence<uint
     }
 
     for (int i = 0; i < nbB; i++) {
-        auto e_i = GET_ENDPOINT_B(i);
-        auto inv_i = RB_R(i);
+        auto e_i = get_endpoint(B, i);
+        auto inv_i = read_rank(B, i);
 
         for (int j = 0; j < nbA; j++) {
-            auto e_j = GET_ENDPOINT_A(j);
+            auto e_j = get_endpoint(A, j);
             if (j < inv_i) {
                 if (e_i < e_j) return false;
                 
@@ -446,55 +413,55 @@ bool CheckInversionPointers(parlay::sequence<uint32_t>& A, parlay::sequence<uint
     return true;
 }
 
-bool CheckEndSorted(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t b) {
+bool CheckEndSorted(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
     uint32_t nbA = A.size()/b;
     uint32_t nbB = B.size()/b;
 
     for (int i = 0; i < nbA + nbB - 1; i++) {
         if (i < nbA - 1) {
-            if (GET_ENDPOINT_A(i) > GET_ENDPOINT_A(i+1)) return false;
+            if (get_endpoint(A, i) > get_endpoint(A, i+1)) return false;
         } else if (i == nbA - 1) {
-            if (GET_ENDPOINT_A(nbA - 1) > GET_ENDPOINT_B(0)) return false;
+            if (get_endpoint(A, nbA - 1) > get_endpoint(B, 0)) return false;
         } else {
-            if (GET_ENDPOINT_B(i - nbA) > GET_ENDPOINT_B(i+1 - nbA)) return false;
+            if (get_endpoint(B, i - nbA) > get_endpoint(B, i+1 - nbA)) return false;
         }
     }
 
     return true;
 }
 
-void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t b) {
-    assert(A.size() >= b);
-    assert(B.size() >= b);
-    assert(A.size() % b == 0);
-    assert(B.size() % b == 0);
-    assert(A.size() >= b);
-    assert(b % 2 == 0);
-    assert(b >= 5*SEGMENT_SIZE);
+void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
+    uint32_t Asize = A.size();
+    uint32_t Bsize = B.size();
+
+    assert(Asize >= b);
+    assert(Bsize >= b);
+    assert(Asize % b == 0);
+    assert(Bsize % b == 0);
+
+    uint32_t num_iterations = parlay::log2_up(static_cast<uint32_t>(std::sqrt((Asize + Bsize) / b)));    
+    // uint32_t num_iterations = 4;  
 
     bdiv2 = b/2;
-
-    bool* flag = (bool*) std::malloc(sizeof(bool));
-    *flag = false;
     // std::cout << "Setting Up...\n\n";
-    //  auto start = std::chrono::high_resolution_clock().now();
-    SetUp(A, B, b);
+    // auto start = std::chrono::high_resolution_clock().now();
+    SetUp(A, B);
     //  auto end = std::chrono::high_resolution_clock().now();
     // auto time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
-    //assert(CheckInversionPointers(A, B, b));
+    // assert(CheckInversionPointers(A, B));
     // std::cout << "Time for SetUp: " << time.count() << " \n";
     // // std::cout << "End Sorting...\n\n";
-    //start = std::chrono::high_resolution_clock().now();
-    EndSort(A, B, b, flag);
+    // start = std::chrono::high_resolution_clock().now();
+    EndSort(A, B, num_iterations);
     // end = std::chrono::high_resolution_clock().now();
     // time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
-    //assert(CheckEndSorted(A, B, b));
-    //std::cout << "Time for EndSort: " << time.count() << " \n";
+    // assert(CheckEndSorted(A, B));
+
+    // std::cout << "Time for EndSort: " << time.count() << " \n";
     //std::cout << "Seq Sorting...\n\n";
-    //start = std::chrono::high_resolution_clock().now();
-    SeqSort(A, B, 0, (uint32_t)A.size() + B.size(), b);
+    // start = std::chrono::high_resolution_clock().now();
+    SeqSort(A, B, 0, (uint32_t)A.size() + B.size());
     // end = std::chrono::high_resolution_clock().now();
     // time = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
     // std::cout << "Time for SeqSort: " << time.count() << " \n";
-    std::free(flag);
 }
