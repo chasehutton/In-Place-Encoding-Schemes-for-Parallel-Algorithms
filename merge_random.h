@@ -24,7 +24,6 @@ static uint32_t PADDING_t2 = 2*PADDING;
 static uint32_t PADDING_t3 = 3*PADDING;
 static uint32_t PADDING_t4 = 4*PADDING;
 static uint32_t PADDING_t5 = 5*PADDING;
-uint32_t bdiv2;
 
 uint32_t inline get_endpoint(parlay::sequence<uint32_t>& S, uint32_t j) {
     return S[j*b + b - 1];
@@ -249,7 +248,7 @@ void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
                 }
             }
         });
-    }
+    } 
 
     parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
         if (i < nbA) {
@@ -298,7 +297,7 @@ void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
             }
         }
     });
-
+   
     parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
         if (i < nbA) {
             restore_end_sorted_position_buffer(A, i);
@@ -307,7 +306,6 @@ void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
             restore_end_sorted_position_buffer(B, k);
         }
     });
-
 }
 
 inline void Separate(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t start, uint32_t end, bool base_case) { 
@@ -439,10 +437,9 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
     assert(Asize % b == 0);
     assert(Bsize % b == 0);
 
-    uint32_t num_iterations = parlay::log2_up(static_cast<uint32_t>(std::sqrt((Asize + Bsize) / b)));    
+    uint32_t num_iterations = parlay::log2_up(Asize + Bsize / b) ;    
     // uint32_t num_iterations = 4;  
 
-    bdiv2 = b/2;
     // std::cout << "Setting Up...\n\n";
     // auto start = std::chrono::high_resolution_clock().now();
     SetUp(A, B);

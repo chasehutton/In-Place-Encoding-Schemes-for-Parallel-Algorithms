@@ -12,14 +12,14 @@
 inline void swap_block_cpy_half(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B,
                          uint32_t block1_start, uint32_t block1_end,
                          uint32_t block2_start, uint32_t block2_end) {
-    if (b/2 <= 4096) {
-        std::array<uint32_t, b/2> temp;
+    if (bdiv2 <= 8192) {
+        std::array<uint32_t, bdiv2> temp;
         //parlay::sequence<uint32_t> temp(size);
         std::copy(A.begin() + block1_start, A.begin() + block1_end, temp.begin());
         std::copy(B.begin() + block2_start, B.begin() + block2_end, A.begin() + block1_start);
-        std::copy(temp.begin(), temp.begin() + b/2, B.begin() + block2_start);
+        std::copy(temp.begin(), temp.begin() + bdiv2, B.begin() + block2_start);
   } else {
-        parlay::parallel_for(0, b/2, [&] (uint32_t i) {
+        parlay::parallel_for(0, bdiv2, [&] (uint32_t i) {
             std::swap(A[block1_start + i], B[block2_start + i]);
     });
   }
@@ -29,7 +29,7 @@ inline void swap_block_cpy(parlay::sequence<uint32_t>& A, parlay::sequence<uint3
     uint32_t block1_start, uint32_t block1_end,
     uint32_t block2_start, uint32_t block2_end) {
     
-    if (b <= 4096) {
+    if (b <= 8192) {
         std::array<uint32_t, b> temp;
         std::copy(A.begin() + block1_start, A.begin() + block1_end, temp.begin());
         std::copy(B.begin() + block2_start, B.begin() + block2_end, A.begin() + block1_start);
@@ -96,7 +96,7 @@ inline void write_block_128(parlay::sequence<uint32_t>& S, uint32_t start, uint6
 
 inline void merge(parlay::slice<uint32_t*, uint32_t*> A,
                   parlay::slice<uint32_t*, uint32_t*> B) {
-  if (b <= 4096) {
+  if (b <= 8192) {
     std::array<uint32_t, 2*b> temp;
 
     size_t i = 0; 
@@ -138,8 +138,8 @@ inline void pairwise_sort(parlay::slice<uint32_t*, uint32_t*> S) {
   uint32_t idx1 = 0;
   uint32_t idx2 = 0;
 
-  if (b <= 4096) {
-    for (int i = 0; i < b/2; i++) {
+  if (b <= 8192) {
+    for (int i = 0; i < bdiv2; i++) {
         idx1 = 2*i;
         idx2 = 2*i + 1;
         if (S[idx1] > S[idx2]) {
@@ -147,7 +147,7 @@ inline void pairwise_sort(parlay::slice<uint32_t*, uint32_t*> S) {
         }
     }
   } else {
-    parlay::parallel_for(0, b/2, [&] (uint32_t i) {
+    parlay::parallel_for(0, bdiv2, [&] (uint32_t i) {
         uint32_t idx1 = 2*i;
         uint32_t idx2 = 2*i + 1;
         if (S[idx1] > S[idx2]) {
