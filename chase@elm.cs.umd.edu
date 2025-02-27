@@ -327,7 +327,7 @@ inline void Separate(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& 
     uint32_t j_index = j*b;
 
     uint32_t inv1 = i_inv;
-    uint32_t inv2 = j_index < Asize ? (read_mark(A, j) == 1 ? 0 : read_inversion_pointer(A, j)) : (read_mark(B, j - nbA) == 1 ? 0 : read_inversion_pointer(B, j - nbA));
+    uint32_t inv2 = j_index < Asize ? read_inversion_pointer(A, j) : read_inversion_pointer(B, j - nbA);
     auto& D = i_index < Asize ? A : B;
     auto seq_index = i_index < Asize ? i_index : i_index - Asize;
     auto D1 = parlay::make_slice(D.begin() + seq_index, D.begin() + seq_index + b);
@@ -338,34 +338,23 @@ inline void Separate(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& 
    
     // pairwise_sort(D1);
     // pairwise_sort(D2);
-
-    if (inv2 != 0) {    
-        parlay::par_do( 
-            [&] {
-                reset_inv_encoding(D1);
-            },
-            [&] {
-                reset_inv_encoding(D2);
-            }
-        );
-    } else {
-        reset_inv_encoding(D1);
-    }
-
+    parlay::par_do( 
+        [&] {
+            reset_inv_encoding(D1);
+        },
+        [&] {
+            reset_inv_encoding(D2);
+        }
+    );
     if (D1[b-1] > D2[0]) merge(D1, D2);
   
 
     if (!base_case) {
-        // if (i_index < Asize) write_inversion_pointer(A, i, inv1);
-        // else write_inversion_pointer(B, i - nbA, inv1);
+        if (i_index < Asize) write_inversion_pointer(A, i, inv1);
+        else write_inversion_pointer(B, i - nbA, inv1);
 
-        if (i_index < Asize) mark_self(A, i);
-        else mark_self(B, i - nbA);
-
-        if (inv2 != 0) {
-            if (j_index < Asize) write_inversion_pointer(A, j, inv2);
-            else write_inversion_pointer(B, j - nbA, inv2);
-        }
+        if (j_index < Asize) write_inversion_pointer(A, j, inv2);
+        else write_inversion_pointer(B, j - nbA, inv2);
     }
 }
 
@@ -382,12 +371,7 @@ void SeqSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
         uint32_t Asize = A.size();
         auto& D = end < Asize ? A : B;
         auto x = end < Asize ? 0 : Asize;
-        auto k = end < Asize ? start / b : start / b - Asize / b;
-        if (read_mark(D, k) == 1) {
-            
-        } else {
-            reset_inv_encoding(parlay::make_slice(D.begin() + start - x, D.begin() + end - x));
-        }
+        pairwise_sort(parlay::make_slice(D.begin() + start - x, D.begin() + end - x));
         return;
     }
     

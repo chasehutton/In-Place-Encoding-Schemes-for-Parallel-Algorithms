@@ -12,7 +12,7 @@
 inline void swap_block_cpy_half(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B,
                          uint32_t block1_start, uint32_t block1_end,
                          uint32_t block2_start, uint32_t block2_end) {
-    if (bdiv2 <= 8192) {
+    if (bdiv2 <= 4096) {
         std::array<uint32_t, bdiv2> temp;
         //parlay::sequence<uint32_t> temp(size);
         std::copy(A.begin() + block1_start, A.begin() + block1_end, temp.begin());
@@ -29,7 +29,7 @@ inline void swap_block_cpy(parlay::sequence<uint32_t>& A, parlay::sequence<uint3
     uint32_t block1_start, uint32_t block1_end,
     uint32_t block2_start, uint32_t block2_end) {
     
-    if (b <= 8192) {
+    if (b <= 4096) {
         std::array<uint32_t, b> temp;
         std::copy(A.begin() + block1_start, A.begin() + block1_end, temp.begin());
         std::copy(B.begin() + block2_start, B.begin() + block2_end, A.begin() + block1_start);
@@ -96,7 +96,7 @@ inline void write_block_128(parlay::sequence<uint32_t>& S, uint32_t start, uint6
 
 inline void merge(parlay::slice<uint32_t*, uint32_t*> A,
                   parlay::slice<uint32_t*, uint32_t*> B) {
-  if (b <= 8192) {
+  if (b <= 4096) {
     std::array<uint32_t, 2*b> temp;
 
     size_t i = 0; 
@@ -124,14 +124,134 @@ inline void merge(parlay::slice<uint32_t*, uint32_t*> A,
         B[idx] = temp[b + idx];
     }
   } else {
-    // std::array<uint32_t, 2*b> R;
-    parlay::sequence<uint32_t> R(2*b);
+    std::array<uint32_t, 2*b> R;
+    // parlay::sequence<uint32_t> R(2*b);
     parlay::internal::merge_into<parlay::copy_assign_tag>(A, B, parlay::make_slice(R),std::less<>());
     parlay::parallel_for(0, b, [&] (uint32_t i) {
         A[i] = R[i];
         B[i] = R[b + i];
     });
   }                
+}
+
+inline void reset_inv_encoding(parlay::sequence<uint32_t>& S, uint32_t start) {
+    uint32_t i, idx1, idx2;
+
+    for (i = 0; i < 32; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+}
+
+inline void reset_inv_encoding(parlay::slice<uint32_t*, uint32_t*> S) {
+    uint32_t i, idx1, idx2;
+
+    for (i = 0; i < 32; i++) {
+        idx1 = 2*i;
+        idx2 = 2*i + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+}
+
+inline void reset_encoding(parlay::sequence<uint32_t>& S, uint32_t start) {
+    uint32_t i, idx1, idx2;
+
+    for (i = 0; i < 32; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start +  1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+
+    for (i = 40; i < 72; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+
+    for (i = 80; i < 81; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+
+    for (i = bdiv2 + 9; i < bdiv2 + 41; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+
+    for (i = bdiv2 + 49; i < bdiv2 + 113; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+
+    for (i = bdiv2 + 121; i < 122; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+}
+
+inline void reset_encoding_minus_inv(parlay::sequence<uint32_t>& S, uint32_t start) {
+    uint32_t i, idx1, idx2;
+
+    for (i = 40; i < 72; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+
+    for (i = 80; i < 81; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+
+    for (i = bdiv2 + 9; i < bdiv2 + 41; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+
+    for (i = bdiv2 + 49; i < bdiv2 + 113; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
+
+    for (i = bdiv2 + 121; i < 122; i++) {
+        idx1 = 2*i + start;
+        idx2 = 2*i + start + 1;
+        if (S[idx1] > S[idx2]) {
+            std::swap(S[idx1], S[idx2]);
+        }
+    }
 }
 
 inline void pairwise_sort(parlay::slice<uint32_t*, uint32_t*> S) {

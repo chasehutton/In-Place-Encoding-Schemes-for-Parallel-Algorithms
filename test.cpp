@@ -46,37 +46,37 @@ parlay::sequence<uint32_t> GenAlmostSorted(uint32_t n, uint32_t k) {
   return R;
 }
 
-// void ParReverse(parlay::slice<uint32_t *, uint32_t *> A) {
-//   auto Asize = A.size();
-//   if (Asize <= 2048) {
-//     for (int i = 0; i < std::floor(Asize / 2); i++) {
-//       std::swap(A[i], A[Asize - i - 1]);
-//     }
-//   } else {
-//     parlay::parallel_for(0, std::floor(Asize / 2), [&] (uint32_t i) {
-//       std::swap(A[i], A[Asize - i - 1]);
-//     });
-//   }
-// }
+void ParReverse(parlay::slice<uint32_t *, uint32_t *> A) {
+  auto Asize = A.size();
+  if (Asize <= 2048) {
+    for (int i = 0; i < std::floor(Asize / 2); i++) {
+      std::swap(A[i], A[Asize - i - 1]);
+    }
+  } else {
+    parlay::parallel_for(0, std::floor(Asize / 2), [&] (uint32_t i) {
+      std::swap(A[i], A[Asize - i - 1]);
+    });
+  }
+}
 
-// void ParReverseSplit(parlay::slice<uint32_t *, uint32_t *> A, parlay::slice<uint32_t *, uint32_t *> B) {
-//   auto Asize = A.size();
-//   auto Bsize = B.size();
-//   auto n = Asize + Bsize;
-//   if (n <= 2048) {
-//     for (int i = 0; i < std::floor((n) / 2); i++) {
-//       if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
-//       else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
-//       else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
-//     }
-//   } else {
-//     parlay::parallel_for(0, std::floor(n / 2), [&] (uint32_t i) {
-//       if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
-//       else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
-//       else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
-//     });
-//   }
-// }
+void ParReverseSplit(parlay::slice<uint32_t *, uint32_t *> A, parlay::slice<uint32_t *, uint32_t *> B) {
+  auto Asize = A.size();
+  auto Bsize = B.size();
+  auto n = Asize + Bsize;
+  if (n <= 2048) {
+    for (int i = 0; i < std::floor((n) / 2); i++) {
+      if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
+      else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
+      else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
+    }
+  } else {
+    parlay::parallel_for(0, std::floor(n / 2), [&] (uint32_t i) {
+      if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
+      else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
+      else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
+    });
+  }
+}
 
 // void StrongPIPMerge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t startA, uint32_t endA,
 //                     uint32_t startB, uint32_t endB, uint32_t threshold) {
