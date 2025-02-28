@@ -6,7 +6,7 @@
 #include <chrono>
 
 
-#include "utils.h"
+#include "utils_merge_random.h"
 #include "block_size.h"
 #include "parlay/sequence.h"
 #include "parlay/parallel.h"
@@ -14,113 +14,102 @@
 #include "parlay/random.h"
 #include "parlay/utilities.h"
 
-#define SEGMENT_SIZE 64
-#define PADDING 16
-static uint32_t SEGMENT_SIZE_t2 = 2*SEGMENT_SIZE; 
-static uint32_t SEGMENT_SIZE_t3 = 3*SEGMENT_SIZE; 
-static uint32_t SEGMENT_SIZE_t4 = 4*SEGMENT_SIZE; 
-static uint32_t SEGMENT_SIZE_t5 = 5*SEGMENT_SIZE; 
-static uint32_t PADDING_t2 = 2*PADDING;
-static uint32_t PADDING_t3 = 3*PADDING;
-static uint32_t PADDING_t4 = 4*PADDING;
-static uint32_t PADDING_t5 = 5*PADDING;
+// uint32_t inline get_endpoint(parlay::sequence<uint32_t>& S, uint32_t j) {
+//     return S[j*b + b - 1];
+// }
 
-uint32_t inline get_endpoint(parlay::sequence<uint32_t>& S, uint32_t j) {
-    return S[j*b + b - 1];
-}
+// inline void setup_end_sorted_position_buffer(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t v) {
+//    uint32_t seq_index = j*b + bdiv2 + PADDING;
+//    write_block_64(S, seq_index + 2, S[seq_index]);
+//    S[seq_index] = v;
+// }
 
-inline void setup_end_sorted_position_buffer(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t v) {
-   uint32_t seq_index = j*b + bdiv2 + PADDING;
-   write_block_64(S, seq_index + 2, S[seq_index]);
-   S[seq_index] = v;
-}
+// inline void restore_end_sorted_position_buffer(parlay::sequence<uint32_t>& S, uint32_t j) {
+//     uint32_t seq_index = j*b + bdiv2 + PADDING ;
+//     S[seq_index] = read_block_64(S, seq_index + 2);
+// }
 
-inline void restore_end_sorted_position_buffer(parlay::sequence<uint32_t>& S, uint32_t j) {
-    uint32_t seq_index = j*b + bdiv2 + PADDING ;
-    S[seq_index] = read_block_64(S, seq_index + 2);
-}
+// uint32_t inline read_end_sorted_position(parlay::sequence<uint32_t>& S, uint32_t j) {
+//     uint32_t seq_index = b*j + bdiv2 + PADDING;
+//     return read_block_64(S, seq_index);
+// }
 
-uint32_t inline read_end_sorted_position(parlay::sequence<uint32_t>& S, uint32_t j) {
-    uint32_t seq_index = b*j + bdiv2 + PADDING;
-    return read_block_64(S, seq_index);
-}
+// void inline write_end_sorted_position(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
+//     uint32_t seq_index = b*j + bdiv2 + PADDING;
+//     write_block_64(S, seq_index, value);
+// }
 
-void inline write_end_sorted_position(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
-    uint32_t seq_index = b*j + bdiv2 + PADDING;
-    write_block_64(S, seq_index, value);
-}
+// uint32_t inline read_inversion_pointer(parlay::sequence<uint32_t>& S, uint32_t j) {
+//     uint32_t seq_index = b*j;
+//     return read_block_64(S, seq_index);
+// }
 
-uint32_t inline read_inversion_pointer(parlay::sequence<uint32_t>& S, uint32_t j) {
-    uint32_t seq_index = b*j;
-    return read_block_64(S, seq_index);
-}
+// void inline write_inversion_pointer(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
+//     uint32_t seq_index = b*j;
+//     write_block_64(S, seq_index, value);
+// }
 
-void inline write_inversion_pointer(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
-    uint32_t seq_index = b*j;
-    write_block_64(S, seq_index, value);
-}
+// uint32_t inline read_rank(parlay::sequence<uint32_t>& S, uint32_t j) {
+//     uint32_t seq_index = b*j + SEGMENT_SIZE + PADDING;
+//     return read_block_64(S, seq_index);
+// }
 
-uint32_t inline read_rank(parlay::sequence<uint32_t>& S, uint32_t j) {
-    uint32_t seq_index = b*j + SEGMENT_SIZE + PADDING;
-    return read_block_64(S, seq_index);
-}
+// void inline write_rank(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
+//     uint32_t seq_index = b*j + SEGMENT_SIZE + PADDING;
+//     write_block_64(S, seq_index, value);
+// }
 
-void inline write_rank(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
-    uint32_t seq_index = b*j + SEGMENT_SIZE + PADDING;
-    write_block_64(S, seq_index, value);
-}
+// uint32_t inline read_coin_flip(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t k) {
+//     uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE + 2 + PADDING_t2 + 2*k;
+//     return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]);
+// }
 
-uint32_t inline read_coin_flip(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t k) {
-    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE + 2 + PADDING_t2 + 2*k;
-    return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]);
-}
-
-void inline write_coin_flips(parlay::sequence<uint32_t>& S, uint32_t j, uint64_t r) {
-    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE + 2 + PADDING_t2;
-    write_block_64(S, seq_index, r);
-}
+// void inline write_coin_flips(parlay::sequence<uint32_t>& S, uint32_t j, uint64_t r) {
+//     uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE + 2 + PADDING_t2;
+//     write_block_64(S, seq_index, r);
+// }
 
 
-uint32_t inline read_swap_flag(parlay::sequence<uint32_t>& S, uint32_t j) {
-    uint32_t seq_index = b*j + SEGMENT_SIZE_t2 + PADDING_t2;
-    return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]);
-}
+// uint32_t inline read_swap_flag(parlay::sequence<uint32_t>& S, uint32_t j) {
+//     uint32_t seq_index = b*j + SEGMENT_SIZE_t2 + PADDING_t2;
+//     return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]);
+// }
 
-void inline write_swap_flag(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
-    uint32_t seq_index = b*j + SEGMENT_SIZE_t2 + PADDING_t2;
-    write_block_2(S, seq_index, value);
-}
-
-
-void inline mark_self(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t v) {
-    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE_t3 + 2 + PADDING_t3;
-    write_block_2(S, seq_index, v);
-}
-
-uint32_t inline read_mark(parlay::sequence<uint32_t>& S, uint32_t j) {
-    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE_t3 + 2 + PADDING_t3;
-    return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]); 
-}
+// void inline write_swap_flag(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value) {
+//     uint32_t seq_index = b*j + SEGMENT_SIZE_t2 + PADDING_t2;
+//     write_block_2(S, seq_index, value);
+// }
 
 
-static std::vector<uint32_t*> workspaces;
+// void inline mark_self(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t v) {
+//     uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE_t3 + 2 + PADDING_t3;
+//     write_block_2(S, seq_index, v);
+// }
 
-void InitWorkspaces(std::size_t n) {
-    auto nw = parlay::num_workers();
-    workspaces.resize(nw);
+// uint32_t inline read_mark(parlay::sequence<uint32_t>& S, uint32_t j) {
+//     uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE_t3 + 2 + PADDING_t3;
+//     return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]); 
+// }
+
+
+// static std::vector<uint32_t*> workspaces;
+
+// void InitWorkspaces(std::size_t n) {
+//     auto nw = parlay::num_workers();
+//     workspaces.resize(nw);
     
-    for (int i = 0; i < nw; i++) {
-        workspaces[i] = (uint32_t*) std::malloc(n * sizeof(uint32_t));
-    }
-}
+//     for (int i = 0; i < nw; i++) {
+//         workspaces[i] = (uint32_t*) std::malloc(n * sizeof(uint32_t));
+//     }
+// }
 
-void FreeWorkspaces() {
-    for (auto* ptr : workspaces) {
-        std::free(ptr);
-    }
+// void FreeWorkspaces() {
+//     for (auto* ptr : workspaces) {
+//         std::free(ptr);
+//     }
 
-    workspaces.clear();
-}
+//     workspaces.clear();
+// }
 
 
 void SetUp(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
@@ -150,22 +139,18 @@ void SetUp(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
     parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
         uint32_t k = i - nbA;
         if (i < nbA) setup_end_sorted_position_buffer(A, i, read_rank(A, i) + i);
-        // if (i < nbA) write_end_sorted_position(A, i, read_rank(A, i) + i);
         else setup_end_sorted_position_buffer(B, k, read_rank(B, k) + k);
-        // else write_end_sorted_position(B, k, read_rank(B, k) + k);
     });
 
     parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
         if (i < nbA) {
             uint32_t r = read_rank(A, i);
             uint32_t v = (r >= nbB) ? nbA + nbB : B[r*b + bdiv2 + PADDING];
-            // uint32_t v = (r >= nbB) ? nbA + nbB : read_end_sorted_position(B, r);
             write_inversion_pointer(A, i, v);
         } else {
             uint32_t k = i - nbA;
             uint32_t r = read_rank(B, k);
             uint32_t v = (r >= nbA) ? nbA + nbB : A[r*b + bdiv2 + PADDING];
-            // uint32_t v = (r >= nbA) ? nbA + nbB : read_end_sorted_position(A, r);
             write_inversion_pointer(B, k, v);
         }
     });
@@ -301,16 +286,12 @@ void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
     parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
         if (i < nbA) {
             restore_end_sorted_position_buffer(A, i);
+            reset_encoding_minus_inv(A, i);
         } else {
             uint32_t k = i - nbA;
             restore_end_sorted_position_buffer(B, k);
+            reset_encoding_minus_inv(B, k);
         }
-    });
-
-    parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
-        auto& D = i < nbA ? A : B;
-        uint32_t k = i < nbA ? i : i - nbA;
-        reset_encoding_minus_inv(D, k*b); 
     });
 }
 
@@ -327,45 +308,31 @@ inline void Separate(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& 
     uint32_t j_index = j*b;
 
     uint32_t inv1 = i_inv;
-    uint32_t inv2 = j_index < Asize ? (read_mark(A, j) == 1 ? 0 : read_inversion_pointer(A, j)) : (read_mark(B, j - nbA) == 1 ? 0 : read_inversion_pointer(B, j - nbA));
+    uint32_t inv2 = j_index < Asize ? read_inversion_pointer(A, j) : read_inversion_pointer(B, j - nbA);
     auto& D = i_index < Asize ? A : B;
     auto seq_index = i_index < Asize ? i_index : i_index - Asize;
     auto D1 = parlay::make_slice(D.begin() + seq_index, D.begin() + seq_index + b);
     auto& D0 = j_index < Asize ? A : B;
     seq_index = j_index < Asize ? j_index : j_index - Asize;
     auto D2 = parlay::make_slice(D0.begin() + seq_index, D0.begin() + seq_index + b);
-
    
-    // pairwise_sort(D1);
-    // pairwise_sort(D2);
-
-    if (inv2 != 0) {    
-        parlay::par_do( 
-            [&] {
-                reset_inv_encoding(D1);
-            },
-            [&] {
-                reset_inv_encoding(D2);
-            }
-        );
-    } else {
-        reset_inv_encoding(D1);
-    }
+    parlay::par_do( 
+        [&] {
+            reset_inv_encoding(D1);
+        },
+        [&] {
+            reset_inv_encoding(D2);
+        }
+    );
 
     if (D1[b-1] > D2[0]) merge(D1, D2);
   
-
     if (!base_case) {
-        // if (i_index < Asize) write_inversion_pointer(A, i, inv1);
-        // else write_inversion_pointer(B, i - nbA, inv1);
+        if (i_index < Asize) write_inversion_pointer(A, i, inv1);
+        else write_inversion_pointer(B, i - nbA, inv1);
 
-        if (i_index < Asize) mark_self(A, i, 1);
-        else mark_self(B, i - nbA, 1);
-
-        if (inv2 != 0) {
-            if (j_index < Asize) write_inversion_pointer(A, j, inv2);
-            else write_inversion_pointer(B, j - nbA, inv2);
-        }
+        if (j_index < Asize) write_inversion_pointer(A, j, inv2);
+        else write_inversion_pointer(B, j - nbA, inv2);        
     }
 }
 
@@ -382,12 +349,7 @@ void SeqSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
         uint32_t Asize = A.size();
         auto& D = end < Asize ? A : B;
         auto x = end < Asize ? 0 : Asize;
-        auto k = end < Asize ? start / b : start / b - Asize / b;
-        if (read_mark(D, k) == 1) {
-            
-        } else {
-            reset_inv_encoding(parlay::make_slice(D.begin() + start - x, D.begin() + end - x));
-        }
+        reset_inv_encoding(parlay::make_slice(D.begin() + start - x, D.begin() + 64 - x));
         return;
     }
     

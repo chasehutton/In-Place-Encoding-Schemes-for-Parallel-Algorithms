@@ -11,9 +11,8 @@
 #include <fstream>
 
 
-// #include "merge_random.h"
-#include "merge.h"
-#include "merge_random2.h"
+// #include "merge.h"
+#include "merge_random.h"
 #include "block_size.h"
 
 
@@ -183,8 +182,8 @@ void driver(uint32_t n, uint32_t k) {
       auto B = testSequence.subseq(half, testSequence.size());
       auto A1 = testSequence.subseq(0, half);
       auto B1 = testSequence.subseq(half, testSequence.size());
-      auto A2 = testSequence.subseq(0, half);
-      auto B2 = testSequence.subseq(half, testSequence.size());
+      // auto A2 = testSequence.subseq(0, half);
+      // auto B2 = testSequence.subseq(half, testSequence.size());
 
       
       // auto start3 = std::chrono::high_resolution_clock::now();
@@ -194,14 +193,14 @@ void driver(uint32_t n, uint32_t k) {
 
       // times3.push_back(time3.count());
 
-      // auto start2 = std::chrono::system_clock::now();
-      // auto R = parlay::merge(A1, B1);
-      // auto end2 = std::chrono::system_clock::now();
-      // auto time2 = std::chrono::duration_cast<std::chrono::microseconds>(end2-start2);
+      auto start2 = std::chrono::system_clock::now();
+      auto R = parlay::merge(A1, B1);
+      auto end2 = std::chrono::system_clock::now();
+      auto time2 = std::chrono::duration_cast<std::chrono::microseconds>(end2-start2);
 
       // std::cout << "Time for Parlay Merge in iteration " << i << ": " << time2.count() << "\n";
 
-      // times2.push_back(time2.count());
+      times2.push_back(time2.count());
 
       auto start1 = std::chrono::system_clock::now();
       Merge(A, B);
@@ -220,9 +219,9 @@ void driver(uint32_t n, uint32_t k) {
     //     }
     // }
 
-      // if (!IsSorted(parlay::append(A,B))) {
-      //   std::cout << "\nIteration " << i << " is not sorted! NEW \n";
-      // }
+      if (!IsSorted(parlay::append(A,B))) {
+        std::cout << "\nIteration " << i << " is not sorted! NEW \n";
+      }
 
       // if (!IsSorted(parlay::append(A2,B2))) {
       //   std::cout << "\nIteration " << i << " is not sorted! OLD\n";
@@ -230,24 +229,25 @@ void driver(uint32_t n, uint32_t k) {
     }
 
     auto t1 = parlay::reduce(times1) - times1[0];
-    // auto t2 = parlay::reduce(times2) - times2[0];
+    auto t2 = parlay::reduce(times2) - times2[0];
     // auto t3 = parlay::reduce(times3) - times3[0];
 
-    double avg_time1 = t1 / k;
+    double avg_time1 = t1 / (k-1);
 
-    // double avg_time2 = t2 / k;
+    double avg_time2 = t2 / (k-1);
 
     // double avg_time3 = t3 / k;
     
     // std::cout << "\nAvg Time In Microseconds for Old In-Place Merge: " << avg_time3 << "\n";
     std::cout << "\n\nAvg Time In Microseconds for In-Place Merge: " << avg_time1 << "\n";
-    // std::cout << "\nAvg Time In Microseconds for Parlay Merge: " << avg_time2 << "\n";
+    std::cout << "\nAvg Time In Microseconds for Parlay Merge: " << avg_time2 << "\n";
     // std::cout << "\nSpeeddown: " << avg_time1/avg_time2 <<  "\n\n";
 }
 
 int main(int argc, char* argv[]) {
-    uint32_t size = (static_cast<uint32_t>(std::atoi(argv[1])));
-    uint32_t tests = static_cast<uint32_t>(std::atoi(argv[2]));
+    uint32_t h = (static_cast<uint32_t>(std::atoi(argv[1])));
+    uint32_t size =  h*(static_cast<uint32_t>(std::atoi(argv[2])));
+    uint32_t tests = static_cast<uint32_t>(std::atoi(argv[3]));
     // auto A = parlay::make_slice(seq.begin(), seq.begin() + seq.size()/2);
     // auto B = parlay::make_slice(seq.begin() + seq.size()/2, seq.end());
 
