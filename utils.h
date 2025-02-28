@@ -41,6 +41,27 @@ inline void swap_block_cpy(parlay::sequence<uint32_t>& A, parlay::sequence<uint3
     }
 }
 
+// phantom in S1
+inline void swap_block_cpy(parlay::sequence<uint32_t>& S1, parlay::sequence<uint32_t>& S2, parlay::sequence<uint32_t>& phantom, 
+                           uint32_t block1_start, uint32_t block1_end, uint32_t block2_start, uint32_t block2_end) {
+    if (b <= 4096) {
+        std::array<uint32_t, b> temp;
+
+        // split block copied into tmp
+        std::copy(phantom.begin(), phantom.end(), temp.begin());
+        std::copy(S1.begin() + block1_start, S1.begin() + block1_end, temp.begin() + phantom.size());
+
+        // S2 block copied into split block
+        std::copy(S2.begin() + block2_start, S2.begin() + block2_start + phantom.size(), phantom.begin());
+        std::copy(S2.begin() + block2_start + phantom.size(), S2.begin() + block2_end, S1.begin() + block1_start);
+
+        // split block placed where S2 block was
+        std::copy(temp.begin(), temp.end(), S2.begin() + block2_start);
+    } else {
+
+    }
+}
+
 inline uint32_t read_block_64(parlay::sequence<uint32_t>& S, uint32_t start) {
     uint32_t result = 0;
     uint32_t bit_pos = 0;
@@ -276,3 +297,83 @@ inline void pairwise_sort(parlay::slice<uint32_t*, uint32_t*> S) {
     });
   }
 }
+
+void ParReverseSplit(parlay::slice<uint32_t , uint32_t> A, parlay::slice<uint32_t , uint32_t> B) {
+    auto Asize = A.size();
+    auto Bsize = B.size();
+    auto n = Asize + Bsize;
+    if (n <= 2048) {
+      for (int i = 0; i < std::floor((n) / 2); i++) {
+        if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
+        else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
+        else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
+      }
+    } else {
+      parlay::parallel_for(0, std::floor(n / 2), [&] (uint32_t i) {
+        if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
+        else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
+        else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
+      });
+    }
+  }
+  
+  void ParReverse(parlay::slice<uint32_t* , uint32_t*> A) {
+    auto Asize = A.size();
+    if (Asize <= 2048) {
+      for (int i = 0; i < Asize / 2; i++) {
+        std::swap(A[i], A[Asize - i - 1]);
+      }
+    } else {
+      parlay::parallel_for(0, Asize / 2, [&] (uint32_t i) {
+        std::swap(A[i], A[Asize - i - 1]);
+      });
+    }
+  }
+
+  void ParReverseSplit(parlay::slice<uint32_t *, uint32_t *> A, parlay::slice<uint32_t *, uint32_t *> B) {
+    auto Asize = A.size();
+    auto Bsize = B.size();
+    auto n = Asize + Bsize;
+    if (n <= 2048) {
+      for (int i = 0; i < std::floor((n) / 2); i++) {
+        if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
+        else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
+        else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
+      }
+    } else {
+      parlay::parallel_for(0, std::floor(n / 2), [&] (uint32_t i) {
+        if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
+        else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
+        else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
+      });
+    }
+  }
+  
+  void SwapContiguousChunk(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t s, uint32_t m, uint32_t e) {
+   int nA = A.size();
+   int nB = B.size();
+   // chunk contained in left side
+   if (e < nA) {
+       ParReverse(parlay::make_slice(A.begin()+s, A.begin()+e));
+       ParReverse(parlay::make_slice(A.begin()+s, A.begin()+m));
+       ParReverse(parlay::make_slice(A.begin()+m, A.begin()+e));
+   }
+   // chunk contained in right side
+   else if (s >= nB) {
+       ParReverse(parlay::make_slice(B.begin()+s-nA, B.begin()+e-nA));
+       ParReverse(parlay::make_slice(B.begin()+s-nA, B.begin()+m-nA));
+       ParReverse(parlay::make_slice(B.begin()+m-nA, B.begin()+e-nA));
+   }
+   // right side split
+   else if (m < nA){
+        ParReverseSplit(parlay::make_slice(A.begin()+s, A.end()), parlay::make_slice(B.begin(), B.begin()+e-nA));
+        ParReverse(parlay::make_slice(A.begin()+s, A.begin()+m));
+        ParReverseSplit(parlay::make_slice(A.begin()+m, A.end()), parlay::make_slice(B.begin(), B.begin()+e-nA));
+    }
+    // left side split
+    else {
+         ParReverseSplit(parlay::make_slice(A.begin()+s, A.end()), parlay::make_slice(B.begin(), B.begin()+e-nA));
+         ParReverseSplit(parlay::make_slice(A.begin()+s, A.end()), parlay::make_slice(B.begin(), B.begin()+m-nA));
+       ParReverse(parlay::make_slice(B.begin()+m-nA, B.begin()+e-nA));
+    }
+  }

@@ -173,8 +173,8 @@ void SetUp(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B,
 }
 
 void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, 
-             parlay::sequence<uint32_t>& left_random, parlay::sequence<uint32_t>& right_random,
-             uint32_t tainted_block_index, uint32_t num_iterations) {
+             parlay::sequence<uint32_t>& left_phantom, parlay::sequence<uint32_t>& right_phantom,
+             uint32_t* tainted_block_index, uint32_t num_iterations) {
     assert(num_iterations <= 32);
     uint32_t nbA = A.size()/b + 1;
     uint32_t nbB = B.size()/b;
@@ -196,117 +196,149 @@ void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B,
         }
     });
 
+    // swap smallest by endpoint with first block
+    if (first_by_endpoint != 0) {
+        *tainted_block_index = first_by_endpoint;
+        auto& S = first_by_endpoint < nbA ? A : B;
+        auto st = first_by_endpoint < nbA ? first_by_endpoint*b : (first_by_endpoint - nbA)*b;
+        swap_block_cpy(A, S, left_phantom, 0, A_mod_b, st, st + b);
+    }
+
+    // swap phantom block with desired position
+    if (left_phantom_end_sorted_position != 0) {
+        auto& S1 = *tainted_block_index < nbA ? A : B;
+        auto st1 = *tainted_block_index < nbA ? (*tainted_block_index)*b : (*tainted_block_index - nbA)*b;
+        auto& S2 = left_phantom_end_sorted_position < nbA ? A : B;
+        auto st2 = left_phantom_end_sorted_position < nbA ? left_phantom_end_sorted_position*b : (left_phantom_end_sorted_position - nbA)*b;
+        if (*tainted_block_index == 0) {
+            swap_block_cpy(S1, S2, left_phantom, 0, A_mod_b, st2, st2 + b);
+        } else {
+            swap_block_cpy(S1, S2, st1, st1 + b, st2, st2 + b);
+        }
+
+        *tainted_block_index = left_phantom_end_sorted_position;
+    }
+
     for (int it = 0; it < num_iterations; it++) {
-        parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
-            if (i < nbA) {
-                auto ti = A[i*b + bdiv2 + PADDING];
-                if (ti != i) {
-                    if (read_coin_flip(A, i, it) == 1) {
-                        auto tc = ti < nbA ? read_coin_flip(A, ti, it) : read_coin_flip(B, ti - nbA, it);
-                        if (tc == 0) {
-                            write_swap_flag(A, i, 1);
-                            write_rank(A, i, i);
-                            auto& D = ti < nbA ? A : B;
-                            ti -= (ti < nbA ? 0 : nbA);
-                            swap_block_cpy_half(A, D, i*b, i*b + bdiv2, ti*b, ti*b + bdiv2);
+        parlay::parallel_for(1, nbA + nbB, [&] (uint32_t i) {
+            if (i != *tainted_block_index) {
+                if (i < nbA) {
+                    auto ti = A[i*b + bdiv2 + PADDING];
+                    if (ti != i) {
+                        if (read_coin_flip(A, i, it, A_mod_b) == 1) {
+                            auto tc = ti < nbA ? read_coin_flip(A, ti, it, A_mod_b) : read_coin_flip(B, ti - nbA, it, A_mod_b);
+                            if (tc == 0) {
+                                write_swap_flag(A, i, 1, A_mod_b);
+                                write_rank(A, i, i, A_mod_b);
+                                auto& D = ti < nbA ? A : B;
+                                ti -= (ti < nbA ? 0 : nbA);
+                                swap_block_cpy_half(A, D, i*b, i*b + bdiv2, ti*b, ti*b + bdiv2);
+                            }
                         }
                     }
-                }
-            } else {
-                uint32_t k = i - nbA;
-                auto tk = B[k*b + bdiv2 + PADDING];
-                if (tk != i) {
-                    if (read_coin_flip(B, k, it) == 1) {
-                        auto tc = tk < nbA ? read_coin_flip(A, tk, it) : read_coin_flip(B, tk - nbA, it);
-                        if (tc == 0) {
-                            write_swap_flag(B, k, 1);
-                            write_rank(B, k, i);
-                            auto& D = tk < nbA ? A : B;
-                            tk -= (tk < nbA ? 0 : nbA);
-                            swap_block_cpy_half(B, D, k*b, k*b + bdiv2, tk*b, tk*b + bdiv2);
+                } else {
+                    uint32_t k = i - nbA;
+                    auto tk = B[k*b + bdiv2 + PADDING];
+                    if (tk != i) {
+                        if (read_coin_flip(B, k, it, 0) == 1) {
+                            auto tc = tk < nbA ? read_coin_flip(A, tk, it, A_mod_b) : read_coin_flip(B, tk - nbA, it, 0);
+                            if (tc == 0) {
+                                write_swap_flag(B, k, 1, 0);
+                                write_rank(B, k, i, 0);
+                                auto& D = tk < nbA ? A : B;
+                                tk -= (tk < nbA ? 0 : nbA);
+                                swap_block_cpy_half(B, D, k*b, k*b + bdiv2, tk*b, tk*b + bdiv2);
+                            }
                         }
                     }
                 }
             }
         });
 
-        parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
-            if (i < nbA) {
-                if (read_swap_flag(A, i) == 1) {
-                    write_swap_flag(A, i, 0);
-                    auto t = read_rank(A, i);
-                    auto& D = t < nbA ? A : B;
-                    t -= (t < nbA ? 0 : nbA); 
-                    swap_block_cpy_half(A, D, i*b + bdiv2, i*b + b, t*b + bdiv2, t*b + b);
-                }
+        parlay::parallel_for(1, nbA + nbB, [&] (uint32_t i) {
+            if (i != *tainted_block_index) {
+                if (i < nbA) {
+                    if (read_swap_flag(A, i, A_mod_b) == 1) {
+                        write_swap_flag(A, i, 0, A_mod_b);
+                        auto t = read_rank(A, i, A_mod_b);
+                        auto& D = t < nbA ? A : B;
+                        t -= (t < nbA ? 0 : nbA); 
+                        swap_block_cpy_half(A, D, i*b + bdiv2, i*b + b, t*b + bdiv2, t*b + b);
+                    }
 
-            } else {
-                uint32_t k = i - nbA;
-                if (read_swap_flag(B, k) == 1) {
-                    write_swap_flag(B, k, 0);
-                    auto t = read_rank(B, k);
-                    auto& D = t < nbA ? A : B;
-                    t -= (t < nbA ? 0 : nbA); 
-                    swap_block_cpy_half(B, D, k*b + bdiv2, k*b + b, t*b + bdiv2, t*b + b);
+                } else {
+                    uint32_t k = i - nbA;
+                    if (read_swap_flag(B, k, 0) == 1) {
+                        write_swap_flag(B, k, 0, 0);
+                        auto t = read_rank(B, k, 0);
+                        auto& D = t < nbA ? A : B;
+                        t -= (t < nbA ? 0 : nbA); 
+                        swap_block_cpy_half(B, D, k*b + bdiv2, k*b + b, t*b + bdiv2, t*b + b);
+                    }
                 }
             }
         });
     } 
 
-    parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
-        if (i < nbA) {
-            auto next = A[i*b + bdiv2 + PADDING];
-            while (next != i) {
-                if (next < i) {
-                    mark_self(A, i);
-                    break;
+    parlay::parallel_for(1, nbA + nbB, [&] (uint32_t i) {
+        if (i != *tainted_block_index) {
+            if (i < nbA) {
+                auto next = A[i*b + bdiv2 + PADDING];
+                while (next != i) {
+                    if (next < i) {
+                        mark_self(A, i, A_mod_b);
+                        break;
+                    }
+                    next = next < nbA ? A[next*b + bdiv2 + PADDING] : B[(next - nbA)*b + bdiv2 + PADDING];
                 }
-                next = next < nbA ? A[next*b + bdiv2 + PADDING] : B[(next - nbA)*b + bdiv2 + PADDING];
-            }
-        } else {
-            uint32_t k = i - nbA;
-            auto next = B[k*b + bdiv2 + PADDING];
-            while (next != i) {
-                if (next < i) {
-                    mark_self(B, k);
-                    break;
+            } else {
+                uint32_t k = i - nbA;
+                auto next = B[k*b + bdiv2 + PADDING];
+                while (next != i) {
+                    if (next < i) {
+                        mark_self(B, k, 0);
+                        break;
+                    }
+                    next = next < nbA ? A[next*b + bdiv2 + PADDING] : B[(next - nbA)*b + bdiv2 + PADDING];
                 }
-                next = next < nbA ? A[next*b + bdiv2 + PADDING] : B[(next - nbA)*b + bdiv2 + PADDING];
             }
         }
     });
 
-    parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
-        if (i < nbA) {
-            auto t = A[i*b + bdiv2 + PADDING];
-            if (t != i && read_mark(A, i) == 0) {
-                while (t != i) {
-                    uint32_t k1 = t < nbA ? t : t - nbA;
-                    auto& D = t < nbA ? A : B;
-                    swap_block_cpy(A, D, i*b, i*b + b, k1*b, k1*b + b);
-                    t = A[i*b + bdiv2 + PADDING];
+    parlay::parallel_for(1, nbA + nbB, [&] (uint32_t i) {
+        if (i != *tainted_block_index)
+            if (i < nbA) {
+                auto t = A[i*b + bdiv2 + PADDING];
+                if (t != i && read_mark(A, i, A_mod_b) == 0) {
+                    while (t != i) {
+                        uint32_t k1 = t < nbA ? t : t - nbA;
+                        auto& D = t < nbA ? A : B;
+                        swap_block_cpy(A, D, i*b, i*b + b, k1*b, k1*b + b);
+                        t = A[i*b + bdiv2 + PADDING];
+                    }
+                }
+            } else {
+                uint32_t k = i - nbA;
+                auto t = B[k*b + bdiv2 + PADDING];
+                if (t != i && read_mark(B, k, 0) == 0) {
+                    while (t != i) {
+                        uint32_t k1 = t < nbA ? t : t - nbA;
+                        auto& D = t < nbA ? A : B;
+                        swap_block_cpy(B, D, k*b, k*b + b, k1*b, k1*b + b);
+                        t = B[k*b + bdiv2 + PADDING];
+                    }
                 }
             }
-        } else {
-            uint32_t k = i - nbA;
-            auto t = B[k*b + bdiv2 + PADDING];
-            if (t != i && read_mark(B, k) == 0) {
-                while (t != i) {
-                    uint32_t k1 = t < nbA ? t : t - nbA;
-                    auto& D = t < nbA ? A : B;
-                    swap_block_cpy(B, D, k*b, k*b + b, k1*b, k1*b + b);
-                    t = B[k*b + bdiv2 + PADDING];
-                }
-            }
-        }
     });
    
-    parlay::parallel_for(0, nbA + nbB, [&] (uint32_t i) {
-        if (i < nbA) {
-            restore_end_sorted_position_buffer(A, i);
-        } else {
-            uint32_t k = i - nbA;
-            restore_end_sorted_position_buffer(B, k);
+    parlay::parallel_for(1, nbA + nbB, [&] (uint32_t i) {
+        if (i != *tainted_block_index) {
+            if (i < nbA) {
+                restore_end_sorted_position_buffer(A, i, A_mod_b);
+            } else {
+                uint32_t k = i - nbA;
+                restore_end_sorted_position_buffer(B, k, 0);
+            }
         }
     });
 }
@@ -443,6 +475,11 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
     uint32_t Asize = A.size();
     uint32_t Bsize = B.size();
 
+    if (Asize < b && Bsize < b) {
+        merge(parlay::make_slice(A), parlay::make_slice(B));
+        return;
+    }
+
     if (Asize > Bsize) return Merge(B, A);
 
     assert(Asize > 2 && Bsize >= 2);
@@ -460,6 +497,6 @@ void Merge(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B) {
     uint32_t tainted_block_index = 0;
 
     SetUp(A, B, left_phantom, right_phantom, tainted_block_index);
-    EndSort(A, B, left_phantom, right_phantom, tainted_block_index, num_iterations);
+    EndSort(A, B, left_phantom, right_phantom, &tainted_block_index, num_iterations);
     SeqSort(A, B, left_phantom, right_phantom, tainted_block_index, 0, (uint32_t)A.size() + B.size());    
 }
