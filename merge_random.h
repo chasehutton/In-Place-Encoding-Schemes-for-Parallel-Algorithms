@@ -92,9 +92,9 @@ void inline write_swap_flag(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t 
 }
 
 
-void inline mark_self(parlay::sequence<uint32_t>& S, uint32_t j) {
+void inline mark_self(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t v) {
     uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE_t3 + 2 + PADDING_t3;
-    write_block_2(S, seq_index, 1);
+    write_block_2(S, seq_index, v);
 }
 
 uint32_t inline read_mark(parlay::sequence<uint32_t>& S, uint32_t j) {
@@ -255,7 +255,7 @@ void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
             auto next = A[i*b + bdiv2 + PADDING];
             while (next != i) {
                 if (next < i) {
-                    mark_self(A, i);
+                    mark_self(A, i, 1);
                     break;
                 }
                 next = next < nbA ? A[next*b + bdiv2 + PADDING] : B[(next - nbA)*b + bdiv2 + PADDING];
@@ -265,7 +265,7 @@ void EndSort(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint3
             auto next = B[k*b + bdiv2 + PADDING];
             while (next != i) {
                 if (next < i) {
-                    mark_self(B, k);
+                    mark_self(B, k, 1);
                     break;
                 }
                 next = next < nbA ? A[next*b + bdiv2 + PADDING] : B[(next - nbA)*b + bdiv2 + PADDING];
@@ -359,8 +359,8 @@ inline void Separate(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& 
         // if (i_index < Asize) write_inversion_pointer(A, i, inv1);
         // else write_inversion_pointer(B, i - nbA, inv1);
 
-        if (i_index < Asize) mark_self(A, i);
-        else mark_self(B, i - nbA);
+        if (i_index < Asize) mark_self(A, i, 1);
+        else mark_self(B, i - nbA, 1);
 
         if (inv2 != 0) {
             if (j_index < Asize) write_inversion_pointer(A, j, inv2);
