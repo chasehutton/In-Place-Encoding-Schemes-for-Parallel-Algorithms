@@ -73,80 +73,81 @@ inline void write_block_128(parlay::sequence<uint32_t>& S, uint32_t start, uint6
     }
 }
 
-uint32_t inline get_endpoint(parlay::sequence<uint32_t>& S, uint32_t j, int offset) {
-    return S[j*b + b - 1 + offset];
+uint32_t inline get_endpoint(parlay::sequence<uint32_t>& S, uint32_t j) {
+    return S[j*b + b - 1];
 }
 
-inline void setup_end_sorted_position_buffer(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t v, int offset) {
-   uint32_t seq_index = j*b + bdiv2 + PADDING + offset;
+inline void setup_end_sorted_position_buffer(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t v) {
+   uint32_t seq_index = j*b + bdiv2 + PADDING;
    write_block_64(S, seq_index + 2, S[seq_index]);
    S[seq_index] = v;
 }
 
-inline void restore_end_sorted_position_buffer(parlay::sequence<uint32_t>& S, uint32_t j, int offset) {
-    uint32_t seq_index = j*b + bdiv2 + PADDING + offset;
+inline void restore_end_sorted_position_buffer(parlay::sequence<uint32_t>& S, uint32_t j) {
+    uint32_t seq_index = j*b + bdiv2 + PADDING;
     S[seq_index] = read_block_64(S, seq_index + 2);
+    write_block_64(S, seq_index + 2, 0);
 }
 
-uint32_t inline read_end_sorted_position(parlay::sequence<uint32_t>& S, uint32_t j, int offset) {
-    uint32_t seq_index = b*j + bdiv2 + PADDING + offset;
+uint32_t inline read_end_sorted_position(parlay::sequence<uint32_t>& S, uint32_t j) {
+    uint32_t seq_index = b*j + bdiv2 + PADDING;
     return read_block_64(S, seq_index);
 }
 
-void inline write_end_sorted_position(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value, int offset) {
-    uint32_t seq_index = b*j + bdiv2 + PADDING + offset;
+void inline write_end_sorted_position(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value ) {
+    uint32_t seq_index = b*j + bdiv2 + PADDING;
     write_block_64(S, seq_index, value);
 }
 
-uint32_t inline read_inversion_pointer(parlay::sequence<uint32_t>& S, uint32_t j, int offset) {
-    uint32_t seq_index = b*j + offset;
+uint32_t inline read_inversion_pointer(parlay::sequence<uint32_t>& S, uint32_t j ) {
+    uint32_t seq_index = b*j;
     return read_block_64(S, seq_index);
 }
 
-void inline write_inversion_pointer(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value, int offset) {
-    uint32_t seq_index = b*j + offset;
+void inline write_inversion_pointer(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value ) {
+    uint32_t seq_index = b*j;
     write_block_64(S, seq_index, value);
 }
 
-uint32_t inline read_rank(parlay::sequence<uint32_t>& S, uint32_t j, int offset) {
-    uint32_t seq_index = b*j + SEGMENT_SIZE + PADDING + offset;
+uint32_t inline read_rank(parlay::sequence<uint32_t>& S, uint32_t j ) {
+    uint32_t seq_index = b*j + SEGMENT_SIZE + PADDING;
     return read_block_64(S, seq_index);
 }
 
-void inline write_rank(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value, int offset) {
-    uint32_t seq_index = b*j + SEGMENT_SIZE + PADDING + offset;
+void inline write_rank(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value ) {
+    uint32_t seq_index = b*j + SEGMENT_SIZE + PADDING; 
     write_block_64(S, seq_index, value);
 }
 
-uint32_t inline read_coin_flip(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t k, int offset) {
-    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE + 2 + PADDING_t2 + 2*k + offset;
+uint32_t inline read_coin_flip(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t k ) {
+    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE + 2 + PADDING_t2 + 2*k;
     return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]);
 }
 
-void inline write_coin_flips(parlay::sequence<uint32_t>& S, uint32_t j, uint64_t r, int offset) {
-    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE + 2 + PADDING_t2 + offset;
+void inline write_coin_flips(parlay::sequence<uint32_t>& S, uint32_t j, uint64_t r ) {
+    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE + 2 + PADDING_t2;
     write_block_64(S, seq_index, r);
 }
 
 
-uint32_t inline read_swap_flag(parlay::sequence<uint32_t>& S, uint32_t j, int offset) {
-    uint32_t seq_index = b*j + SEGMENT_SIZE_t2 + PADDING_t2 + offset;
+uint32_t inline read_swap_flag(parlay::sequence<uint32_t>& S, uint32_t j ) {
+    uint32_t seq_index = b*j + SEGMENT_SIZE_t2 + PADDING_t2;
     return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]);
 }
 
-void inline write_swap_flag(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value, int offset) {
-    uint32_t seq_index = b*j + SEGMENT_SIZE_t2 + PADDING_t2 + offset;
+void inline write_swap_flag(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t value ) {
+    uint32_t seq_index = b*j + SEGMENT_SIZE_t2 + PADDING_t2;
     write_block_2(S, seq_index, value);
 }
 
 
-void inline mark_self(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t v, int offset) {
-    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE_t3 + 2 + PADDING_t3 + offset;
+void inline mark_self(parlay::sequence<uint32_t>& S, uint32_t j, uint32_t v ) {
+    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE_t3 + 2 + PADDING_t3;
     write_block_2(S, seq_index, v);
 }
 
-uint32_t inline read_mark(parlay::sequence<uint32_t>& S, uint32_t j, int offset) {
-    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE_t3 + 2 + PADDING_t3 + offset;
+uint32_t inline read_mark(parlay::sequence<uint32_t>& S, uint32_t j ) {
+    uint32_t seq_index = b*j + bdiv2 + SEGMENT_SIZE_t3 + 2 + PADDING_t3;
     return static_cast<uint32_t>(S[seq_index] > S[seq_index + 1]); 
 }
 
@@ -156,7 +157,6 @@ inline void swap_block_cpy_half(parlay::sequence<uint32_t>& A, parlay::sequence<
                          uint32_t block2_start, uint32_t block2_end) {
     if (bdiv2 <= 4096) {
         std::array<uint32_t, bdiv2> temp;
-        //parlay::sequence<uint32_t> temp(size);
         std::copy(A.begin() + block1_start, A.begin() + block1_end, temp.begin());
         std::copy(B.begin() + block2_start, B.begin() + block2_end, A.begin() + block1_start);
         std::copy(temp.begin(), temp.begin() + bdiv2, B.begin() + block2_start);
@@ -182,28 +182,6 @@ inline void swap_block_cpy(parlay::sequence<uint32_t>& A, parlay::sequence<uint3
     });
     }
 }
-
-// phantom in S1
-inline void swap_block_cpy(parlay::sequence<uint32_t>& S1, parlay::sequence<uint32_t>& S2, parlay::sequence<uint32_t>& phantom, 
-                           uint32_t block1_start, uint32_t block1_end, uint32_t block2_start, uint32_t block2_end) {
-    if (b <= 4096) {
-        std::array<uint32_t, b> temp;
-
-        // split block copied into tmp
-        std::copy(phantom.begin(), phantom.end(), temp.begin());
-        std::copy(S1.begin() + block1_start, S1.begin() + block1_end, temp.begin() + phantom.size());
-
-        // S2 block copied into split block
-        std::copy(S2.begin() + block2_start, S2.begin() + block2_start + phantom.size(), phantom.begin());
-        std::copy(S2.begin() + block2_start + phantom.size(), S2.begin() + block2_end, S1.begin() + block1_start);
-
-        // split block placed where S2 block was
-        std::copy(temp.begin(), temp.end(), S2.begin() + block2_start);
-    } else {
-
-    }
-}
-
 
 inline void merge(parlay::slice<uint32_t*, uint32_t*> A,
                   parlay::slice<uint32_t*, uint32_t*> B) {
@@ -239,7 +217,6 @@ inline void merge(parlay::slice<uint32_t*, uint32_t*> A,
     }
   } else {
     std::array<uint32_t, 2*b> R;
-    // parlay::sequence<uint32_t> R(2*b);
     parlay::internal::merge_into<parlay::copy_assign_tag>(A, B, parlay::make_slice(R),std::less<>());
     if (Asize <= 4096) {    
         for (size_t idx = 0; idx < Asize; idx++) {
@@ -267,21 +244,6 @@ inline void merge(parlay::slice<uint32_t*, uint32_t*> A,
   }                
 }
 
-inline void reset_inv_encoding(parlay::sequence<uint32_t>& S, uint32_t start, int offset) {
-    write_inversion_pointer(S, start, 0, offset);
-    write_rank(S, start, 0, offset);
-    write_swap_flag(S, start, 0, offset);
-    write_coin_flips(S, start, 0, offset);
-    mark_self(S, start, 0, offset);
-}
-
-inline void reset_encoding_minus_inv(parlay::sequence<uint32_t>& S, uint32_t start, int offset) {
-    write_rank(S, start, 0, offset);
-    write_swap_flag(S, start, 0, offset);
-    write_coin_flips(S, start, 0, offset);
-    mark_self(S, start, 0, offset);
-}
-
 inline void reset_inv_encoding(parlay::slice<uint32_t*, uint32_t*> S) {
     uint32_t i, idx1, idx2;
 
@@ -294,20 +256,12 @@ inline void reset_inv_encoding(parlay::slice<uint32_t*, uint32_t*> S) {
     }
 }
 
-// inline void reset_inv_encoding(parlay::sequence<uint32_t>& S, uint32_t start) {
-//     write_inversion_pointer(S, start, 0);
-//     write_rank(S, start, 0);
-//     write_swap_flag(S, start, 0);
-//     write_coin_flips(S, start, 0);
-//     mark_self(S, start, 0);
-// }
-
-// inline void reset_encoding_minus_inv(parlay::sequence<uint32_t>& S, uint32_t start) {
-//     write_rank(S, start, 0);
-//     write_swap_flag(S, start, 0);
-//     write_coin_flips(S, start, 0);
-//     mark_self(S, start, 0);
-// }
+inline void reset_encoding_minus_inv(parlay::sequence<uint32_t>& S, uint32_t start) {
+    write_rank(S, start, 0);
+    write_swap_flag(S, start, 0);
+    write_coin_flips(S, start, 0);
+    mark_self(S, start, 0);
+}
 
 
 inline void pairwise_sort(parlay::slice<uint32_t*, uint32_t*> S) {
@@ -333,82 +287,3 @@ inline void pairwise_sort(parlay::slice<uint32_t*, uint32_t*> S) {
   }
 }
 
-// void ParReverseSplit(parlay::slice<uint32_t , uint32_t> A, parlay::slice<uint32_t , uint32_t> B) {
-//     auto Asize = A.size();
-//     auto Bsize = B.size();
-//     auto n = Asize + Bsize;
-//     if (n <= 2048) {
-//       for (int i = 0; i < std::floor((n) / 2); i++) {
-//         if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
-//         else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
-//         else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
-//       }
-//     } else {
-//       parlay::parallel_for(0, std::floor(n / 2), [&] (uint32_t i) {
-//         if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
-//         else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
-//         else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
-//       });
-//     }
-//   }
-  
-//   void ParReverse(parlay::slice<uint32_t* , uint32_t*> A) {
-//     auto Asize = A.size();
-//     if (Asize <= 2048) {
-//       for (int i = 0; i < Asize / 2; i++) {
-//         std::swap(A[i], A[Asize - i - 1]);
-//       }
-//     } else {
-//       parlay::parallel_for(0, Asize / 2, [&] (uint32_t i) {
-//         std::swap(A[i], A[Asize - i - 1]);
-//       });
-//     }
-//   }
-
-//   void ParReverseSplit(parlay::slice<uint32_t *, uint32_t *> A, parlay::slice<uint32_t *, uint32_t *> B) {
-//     auto Asize = A.size();
-//     auto Bsize = B.size();
-//     auto n = Asize + Bsize;
-//     if (n <= 2048) {
-//       for (int i = 0; i < std::floor((n) / 2); i++) {
-//         if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
-//         else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
-//         else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
-//       }
-//     } else {
-//       parlay::parallel_for(0, std::floor(n / 2), [&] (uint32_t i) {
-//         if (i < Asize && n - i - 1 < Asize) std::swap(A[i], A[n - i - 1]);
-//         else if (i < Asize && n - i - 1 >= Asize) std::swap(A[i], B[n - i - 1 - Asize]);
-//         else std::swap(B[i - Asize], B[n - i - 1 - Asize]);
-//       });
-//     }
-//   }
-  
-//   void SwapContiguousChunk(parlay::sequence<uint32_t>& A, parlay::sequence<uint32_t>& B, uint32_t s, uint32_t m, uint32_t e) {
-//    int nA = A.size();
-//    int nB = B.size();
-//    // chunk contained in left side
-//    if (e < nA) {
-//        ParReverse(parlay::make_slice(A.begin()+s, A.begin()+e));
-//        ParReverse(parlay::make_slice(A.begin()+s, A.begin()+m));
-//        ParReverse(parlay::make_slice(A.begin()+m, A.begin()+e));
-//    }
-//    // chunk contained in right side
-//    else if (s >= nB) {
-//        ParReverse(parlay::make_slice(B.begin()+s-nA, B.begin()+e-nA));
-//        ParReverse(parlay::make_slice(B.begin()+s-nA, B.begin()+m-nA));
-//        ParReverse(parlay::make_slice(B.begin()+m-nA, B.begin()+e-nA));
-//    }
-//    // right side split
-//    else if (m < nA){
-//         ParReverseSplit(parlay::make_slice(A.begin()+s, A.end()), parlay::make_slice(B.begin(), B.begin()+e-nA));
-//         ParReverse(parlay::make_slice(A.begin()+s, A.begin()+m));
-//         ParReverseSplit(parlay::make_slice(A.begin()+m, A.end()), parlay::make_slice(B.begin(), B.begin()+e-nA));
-//     }
-//     // left side split
-//     else {
-//          ParReverseSplit(parlay::make_slice(A.begin()+s, A.end()), parlay::make_slice(B.begin(), B.begin()+e-nA));
-//          ParReverseSplit(parlay::make_slice(A.begin()+s, A.end()), parlay::make_slice(B.begin(), B.begin()+m-nA));
-//        ParReverse(parlay::make_slice(B.begin()+m-nA, B.begin()+e-nA));
-//     }
-//   }

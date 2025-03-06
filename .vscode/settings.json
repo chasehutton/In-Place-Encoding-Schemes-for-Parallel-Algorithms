@@ -71,5 +71,6 @@
         "semaphore": "cpp",
         "cinttypes": "cpp",
         "randPerm.C": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "/home/chutton6/In-Place-Encoding-Schemes-for-Parallel-Algorithms/parlaylib"
 }
